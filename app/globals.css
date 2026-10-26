@@ -10,6 +10,12 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-playfair);
+}
+
+/* Hero heading ka elegant serif font (Playfair Display) */
+.font-playfair {
+  font-family: var(--font-playfair), ui-serif, Georgia, serif;
 }
 
 @media (prefers-color-scheme: dark) {
