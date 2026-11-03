@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Storelo — Fashion Store & Admin Dashboard
 
-## Getting Started
+A full-stack fashion storefront with a complete admin panel, built with **Next.js 16 (App Router)**.
 
-First, run the development server:
+Everything on the storefront — store name, currency, hero and footer text — is controlled from the admin **Settings** page. No code changes needed.
+
+---
+
+## Features
+
+### Storefront
+- Landing page: hero, services, product grid, footer
+- Product filtering by category
+- Prices formatted in the currency selected by the admin (e.g. `AED 75.00`, `PKR 75.00`)
+- Fully responsive (mobile, tablet, desktop)
+
+### Admin panel
+- **Authentication** — JWT stored in an `httpOnly` cookie, passwords hashed with bcrypt
+- **Dashboard** — revenue, orders, customers, top products + charts (Recharts)
+- **Products** — create, edit, delete, image upload
+- **Orders** — search, filter by status, pagination, status update
+- **Customers** — search, filter, add / edit
+- **Inventory** — stock overview and low-stock alerts
+- **Notifications** — filterable activity feed
+- **Settings** — store name, currency, hero & footer text (live on the storefront)
+
+---
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router, Server Components) |
+| UI | React 19, Tailwind CSS v4 |
+| Database | MongoDB + Mongoose (settings, admins) |
+| Data store | JSON files (`data/db/*.json`) for products, orders, customers |
+| Auth | JWT (`jose`) + bcryptjs, `httpOnly` cookie |
+| Charts | Recharts |
+
+> **Why two data stores?** Settings and admin accounts live in MongoDB. Products, orders and customers are kept as JSON files — simple, portable, and easy to inspect.
+
+---
+
+## Getting started
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Create `.env.local`
+
+```env
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=any_long_random_string
+```
+
+> `.env.local` is git-ignored — secrets are never committed.
+
+### 3. Create an admin account
+
+```bash
+node scripts/create-admin.mjs
+```
+
+The script prints the email and password it created. Use them to log in at `/login`.
+
+### 4. Run the development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open **http://localhost:3000** for the storefront and **http://localhost:3000/admin** for the dashboard.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project structure
 
-## Learn More
+```
+app/
+├── page.js                 # storefront (server component)
+├── login/                  # login page
+├── admin/                  # dashboard (protected by app/admin/layout.js)
+│   ├── products/ orders/ customers/
+│   ├── inventory/ notifications/ settings/
+└── api/                    # route handlers (server)
+    ├── auth/login/         # JWT login
+    ├── settings/           # GET / PATCH store settings
+    └── admin/              # products, orders, customers, upload
 
-To learn more about Next.js, take a look at the following resources:
+components/                 # UI (server + client)
+lib/
+├── db.js                   # JSON file storage (readData / writeData)
+├── models/                 # Mongoose models
+├── auth.js                 # createToken / verifyToken
+├── settings.js             # settings helpers
+├── format.js               # currency formatting
+└── useCurrency.js          # client hook
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+data/db/                    # products.json, orders.json, customers.json
+scripts/create-admin.mjs    # seed an admin account
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Architecture notes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Server components** read MongoDB / JSON files directly.
+- **Client components** (`"use client"`) fetch data through API routes.
+- **Page guard:** `app/admin/layout.js` verifies the cookie and redirects to `/login`.
+- **API guard:** every `/api/admin/*` route returns `401` when the token is invalid.
+- **Currency** goes through a single helper (`lib/format.js`), so one setting updates the whole app.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Available scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the dev server on port 3000 |
+| `npm run build` | Production build |
+| `npm start` | Run the production build |
+| `npm run lint` | Run ESLint |
+
+---
+
+## Author
+
+**Maaryam Saeed** — [GitHub](https://github.com/maaryammsaeed-cell)
+
+Built as part of a full-stack development internship.
