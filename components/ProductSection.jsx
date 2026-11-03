@@ -7,7 +7,7 @@ import ProductCard from "./ProductCard";
 // (product.category ki value se match hona chahiye).
 const filters = ["All Products", "Men", "Women"];
 
-export default function ProductSection({ products }) {
+export default function ProductSection({ products , currency }) {
   const [activeFilter, setActiveFilter] = useState("All Products");
 
   const visibleProducts =
@@ -56,7 +56,7 @@ export default function ProductSection({ products }) {
         {/* Products grid */}
         <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
           {visibleProducts.map((product) => (
-            <ProductCard key={product._id} product={product} />
+            <ProductCard key={product.id || product._id} product={product}  currency={currency} />
           ))}
         </div>
 

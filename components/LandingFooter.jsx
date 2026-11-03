@@ -1,23 +1,29 @@
 // Page ke aakhir me closing CTA — "Shop with Confidence"
-// Text ya button badalna ho to isi file me karein.
-export default function LandingFooter() {
+// Text ab admin panel se aata hai (Settings → Footer).
+export default function LandingFooter({ footer = {} }) {
+  const {
+    heading = "Shop with Confidence",
+    text = "Quality products, trusted service, and a better shopping experience — every time you shop with us.",
+    buttonLabel = "Start Shopping",
+    buttonHref = "#products",
+  } = footer;
+
   return (
     <section className="bg-[#f7f4ee] px-5 py-20 text-center sm:px-8">
       <div className="mx-auto max-w-3xl">
         <h2 className="font-playfair text-4xl leading-tight tracking-tight text-[#1f2119] sm:text-5xl">
-          Shop with Confidence
+          {heading}
         </h2>
 
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#6b675e] sm:text-base">
-          Quality products, trusted service, and a better shopping experience —
-          every time you shop with us.
+          {text}
         </p>
 
         <a
-          href="#products"
+          href={buttonHref}
           className="mt-9 inline-flex items-center gap-3 rounded-md bg-[#b37b95] px-8 py-4 text-xs font-medium uppercase tracking-[0.2em] text-white transition hover:bg-[#34372b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f2119]"
         >
-          Start Shopping
+          {buttonLabel}
           {/* Arrow icon */}
           <svg
             viewBox="0 0 24 24"

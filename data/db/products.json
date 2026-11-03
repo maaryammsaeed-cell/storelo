@@ -1,0 +1,74 @@
+[
+  {
+    "id": "p1",
+    "title": "Unisex Basic T-Shirt",
+    "price": 75,
+    "category": "Men",
+    "image": "/images/products/tshirt.jpg",
+    "stock": 25,
+    "status": "active"
+  },
+  {
+    "id": "p3",
+    "title": "Polo Shirt",
+    "price": 75,
+    "category": "Men",
+    "image": "/images/products/polo.jpg",
+    "stock": 18,
+    "status": "active"
+  },
+  {
+    "id": "p4",
+    "title": "Joggers / Sweatpants",
+    "price": 100,
+    "category": "Men",
+    "image": "/images/products/joggers.jpg",
+    "stock": 6,
+    "status": "active"
+  },
+  {
+    "id": "p5",
+    "title": "Satin Slip Dress",
+    "price": 180,
+    "category": "Women",
+    "image": "/images/products/dress.jpg",
+    "stock": 0,
+    "status": "inactive"
+  },
+  {
+    "id": "p6",
+    "title": "Straight Leg Jeans",
+    "price": 110,
+    "category": "Women",
+    "image": "/images/products/jeans.jpg",
+    "stock": 9,
+    "status": "active"
+  },
+  {
+    "id": "p7",
+    "title": "Canvas Tote Bag",
+    "price": 60,
+    "category": "Women",
+    "image": "/images/products/tote-bag.jpg",
+    "stock": 30,
+    "status": "active"
+  },
+  {
+    "id": "p8",
+    "title": "Denim Jacket",
+    "price": 160,
+    "category": "Women",
+    "image": "/images/products/denim-jacket.jpg",
+    "stock": 4,
+    "status": "active"
+  },
+  {
+    "id": "1884e2ca-44c6-46cd-b74d-9ebec7e90546",
+    "title": "mobile",
+    "price": 125,
+    "category": "men",
+    "image": "/uploads/product-1793318544026-ymekts.avif",
+    "stock": 18,
+    "status": "active"
+  }
+]

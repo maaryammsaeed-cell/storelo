@@ -1,238 +1,308 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 
-// Demo Notifications Data
-const initialNotifications = [
-  {
-    id: 1,
-    type: 'order',
-    title: 'New Order Received',
-    message: 'Order #ST-1082 placed by Sara Khan for RS 4,500.',
-    time: '5 mins ago',
-    read: false,
-  },
-  {
-    id: 2,
-    type: 'customer',
-    title: 'New Customer Registered',
-    message: 'Ali Ahmed created a new account.',
-    time: '30 mins ago',
-    read: false,
-  },
-  {
-    id: 3,
-    type: 'stock',
-    title: 'Low Stock Alert',
-    message: 'Product "Cream Oversized Tee" has only 2 items left in stock.',
-    time: '2 hours ago',
-    read: false,
-  },
-  {
-    id: 4,
-    type: 'order',
-    title: 'Order Delivered',
-    message: 'Order #ST-1079 was successfully delivered.',
-    time: '1 day ago',
-    read: true,
-  },
-  {
-    id: 5,
-    type: 'customer',
-    title: 'Profile Updated',
-    message: 'Zainab Malik updated her shipping address.',
-    time: '2 days ago',
-    read: true,
-  },
-];
+const READ_STORAGE_KEY = "storelo_read_notifications";
+
+function loadReadIds() {
+  try {
+    const raw = window.localStorage.getItem(READ_STORAGE_KEY);
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveReadIds(ids) {
+  try {
+    window.localStorage.setItem(READ_STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    // localStorage band ho to ignore
+  }
+}
+
+function getEmojiIcon(type) {
+  if (type === "order") return "🛍️";
+  if (type === "customer") return "👤";
+  if (type === "stock") return "⚠️";
+  return "🔔";
+}
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(initialNotifications);
-  const [filter, setFilter] = useState('all'); // 'all', 'unread', 'order', 'stock'
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Unread count
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  useEffect(() => {
+    let active = true;
 
-  // Mark single as read
-  const markAsRead = (id) => {
-    setNotifications(
-      notifications.map((item) =>
-        item.id === id ? { ...item, read: true } : item
-      )
-    );
-  };
+    async function load() {
+      try {
+        const response = await fetch("/api/notifications", {
+          cache: "no-store",
+        });
 
-  // Mark all as read
-  const markAllAsRead = () => {
-    setNotifications(
-      notifications.map((item) => ({ ...item, read: true }))
-    );
-  };
+        if (!response.ok) {
+          throw new Error("Unable to load notifications");
+        }
 
-  // Clear all notifications
-  const clearAll = () => {
-    setNotifications([]);
-  };
+        const data = await response.json();
+        const readIds = new Set(loadReadIds());
+        const list = Array.isArray(data) ? data : [];
 
-  // Filter logic
-  const filteredNotifications = notifications.filter((notif) => {
-    if (filter === 'unread') return !notif.read;
-    if (filter === 'order') return notif.type === 'order';
-    if (filter === 'stock') return notif.type === 'stock';
-    return true;
-  });
-
-  // Emoji icon selector
-  const getEmojiIcon = (type) => {
-    switch (type) {
-      case 'order':
-        return '🛍️';
-      case 'customer':
-        return '👤';
-      case 'stock':
-        return '⚠️';
-      default:
-        return '🔔';
+        if (active) {
+          setNotifications(
+            list.map((item) => ({ ...item, read: readIds.has(item.id) }))
+          );
+          setError("");
+        }
+      } catch {
+        if (active) {
+          setError(
+            "Notifications load nahi hui. Internet check karke dobara try karein."
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
     }
-  };
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, [refreshKey]);
+
+  const unreadCount = notifications.filter((item) => !item.read).length;
+
+  function refresh() {
+    setLoading(true);
+    setError("");
+    setRefreshKey((value) => value + 1);
+  }
+
+  function markAsRead(id) {
+    const ids = new Set(loadReadIds());
+    ids.add(id);
+    saveReadIds(ids);
+
+    setNotifications((items) =>
+      items.map((item) => (item.id === id ? { ...item, read: true } : item))
+    );
+  }
+
+  function markAllAsRead() {
+    const ids = new Set(loadReadIds());
+    notifications.forEach((item) => ids.add(item.id));
+    saveReadIds(ids);
+
+    setNotifications((items) =>
+      items.map((item) => ({ ...item, read: true }))
+    );
+  }
+
+  const filteredNotifications = useMemo(() => {
+    if (filter === "unread") return notifications.filter((item) => !item.read);
+    if (filter === "order")
+      return notifications.filter((item) => item.type === "order");
+    if (filter === "stock")
+      return notifications.filter((item) => item.type === "stock");
+    if (filter === "customer")
+      return notifications.filter((item) => item.type === "customer");
+    return notifications;
+  }, [notifications, filter]);
 
   return (
-    <div className="p-6 md:p-10 max-w-6xl mx-auto font-sans">
-      {/* Top Header & Overview */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 bg-white/60 p-6 rounded-2xl border border-pink-100 shadow-sm backdrop-blur-sm">
+    <div className="mx-auto max-w-6xl p-6 font-sans md:p-10">
+      {/* Header */}
+      <div className="mb-8 flex flex-col justify-between gap-6 rounded-2xl border border-pink-100 bg-white/60 p-6 shadow-sm backdrop-blur-sm md:flex-row md:items-center">
         <div>
-          <span className="text-xs font-bold tracking-wider text-pink-600 uppercase bg-pink-50 px-3 py-1 rounded-full border border-pink-200">
+          <span className="rounded-full border border-pink-200 bg-pink-50 px-3 py-1 text-xs font-bold uppercase tracking-wider text-pink-600">
             Store Activity & Center
           </span>
-          <h1 className="text-3xl md:text-4xl font-serif text-pink-950 font-bold mt-2 flex items-center gap-3 flex-wrap">
-            Notifications 
+
+          <h1 className="mt-2 flex flex-wrap items-center gap-3 font-serif text-3xl font-bold text-pink-950 md:text-4xl">
+            Notifications
             {unreadCount > 0 && (
-              <span className="bg-pink-600 text-white text-xs px-3 py-1 rounded-full font-sans font-medium shadow-sm">
+              <span className="rounded-full bg-pink-600 px-3 py-1 font-sans text-xs font-medium text-white shadow-sm">
                 {unreadCount} Unread
               </span>
             )}
           </h1>
-          <p className="text-sm text-pink-900/70 mt-1 max-w-xl">
-            Monitor real-time store activity, track new customer registrations, incoming orders, and inventory status seamlessly.
+
+          <p className="mt-1 max-w-xl text-sm text-pink-900/70">
+            Live store activity — naye orders, customers aur low stock alerts.
           </p>
         </div>
 
-        {/* Global Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={loading}
+            className="flex items-center gap-2 rounded-xl border border-pink-200 bg-white px-4 py-2.5 text-xs font-semibold text-pink-700 transition hover:bg-pink-50 disabled:opacity-50"
+          >
+            <span className={loading ? "inline-block animate-spin" : ""}>↻</span>
+            Refresh
+          </button>
+
           {unreadCount > 0 && (
             <button
+              type="button"
               onClick={markAllAsRead}
-              className="text-xs font-semibold px-4 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl transition-all shadow-sm flex items-center gap-2"
+              className="flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-pink-700"
             >
               ✓ Mark All as Read
-            </button>
-          )}
-          {notifications.length > 0 && (
-            <button
-              onClick={clearAll}
-              className="text-xs font-semibold px-4 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-all border border-stone-200 flex items-center gap-2"
-            >
-              🗑️ Clear All
             </button>
           )}
         </div>
       </div>
 
-      {/* Filter Tabs Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 scrollbar-none">
+      {/* Filters */}
+      <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-3">
         {[
-          { id: 'all', label: 'All Notifications', count: notifications.length },
-          { id: 'unread', label: 'Unread', count: unreadCount },
-          { id: 'order', label: 'Orders', count: notifications.filter(n => n.type === 'order').length },
-          { id: 'stock', label: 'Stock Alerts', count: notifications.filter(n => n.type === 'stock').length },
+          { id: "all", label: "All Notifications", count: notifications.length },
+          { id: "unread", label: "Unread", count: unreadCount },
+          {
+            id: "order",
+            label: "Orders",
+            count: notifications.filter((item) => item.type === "order").length,
+          },
+          {
+            id: "stock",
+            label: "Stock Alerts",
+            count: notifications.filter((item) => item.type === "stock").length,
+          },
+          {
+            id: "customer",
+            label: "Customers",
+            count: notifications.filter((item) => item.type === "customer")
+              .length,
+          },
         ].map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setFilter(tab.id)}
-            className={`text-xs font-semibold px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-2 border ${
+            className={`flex items-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2 text-xs font-semibold transition-all ${
               filter === tab.id
-                ? 'bg-pink-950 text-white border-pink-950 shadow-sm'
-                : 'bg-white/80 text-pink-950/80 border-pink-100 hover:bg-pink-50'
+                ? "border-pink-950 bg-pink-950 text-white shadow-sm"
+                : "border-pink-100 bg-white/80 text-pink-950/80 hover:bg-pink-50"
             }`}
           >
             {tab.label}
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${filter === tab.id ? 'bg-pink-800 text-white' : 'bg-pink-100 text-pink-800'}`}>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                filter === tab.id
+                  ? "bg-pink-800 text-white"
+                  : "bg-pink-100 text-pink-800"
+              }`}
+            >
               {tab.count}
             </span>
           </button>
         ))}
       </div>
 
-      {/* Notifications List Container */}
-      <div className="space-y-3.5">
-        {filteredNotifications.length === 0 ? (
-          <div className="bg-white/50 border border-pink-100 rounded-2xl p-16 text-center shadow-sm">
-            <div className="w-14 h-14 bg-pink-100 text-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
-              ✨
-            </div>
-            <h3 className="text-xl font-serif font-bold text-pink-950">
-              No Notifications Found
-            </h3>
-            <p className="text-sm text-pink-900/60 mt-1 max-w-sm mx-auto">
-              There are no updates matching your current filter. You are fully up to date!
-            </p>
+      {/* Content */}
+      {loading ? (
+        <div className="space-y-3.5">
+          {[...Array(4)].map((_, index) => (
+            <div
+              key={index}
+              className="h-24 animate-pulse rounded-2xl border border-pink-100 bg-white"
+            />
+          ))}
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-10 text-center">
+          <p className="text-sm font-semibold text-rose-700">{error}</p>
+          <button
+            type="button"
+            onClick={refresh}
+            className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100"
+          >
+            Try again
+          </button>
+        </div>
+      ) : filteredNotifications.length === 0 ? (
+        <div className="rounded-2xl border border-pink-100 bg-white/50 p-16 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-pink-100 text-2xl text-pink-600 shadow-inner">
+            ✨
           </div>
-        ) : (
-          filteredNotifications.map((notif) => (
+          <h3 className="font-serif text-xl font-bold text-pink-950">
+            No Notifications Found
+          </h3>
+          <p className="mx-auto mt-1 max-w-sm text-sm text-pink-900/60">
+            Is filter mein koi update nahi hai. Aap bilkul up to date hain!
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3.5">
+          {filteredNotifications.map((notif) => (
             <div
               key={notif.id}
-              className={`flex flex-col sm:flex-row sm:items-center justify-between p-4.5 rounded-2xl border transition-all gap-4 ${
+              className={`flex flex-col justify-between gap-4 rounded-2xl border p-4.5 transition-all sm:flex-row sm:items-center ${
                 notif.read
-                  ? 'bg-amber-50/20 border-pink-100/60 opacity-85 hover:opacity-100'
-                  : 'bg-white border-pink-200 shadow-md shadow-pink-950/5'
+                  ? "border-pink-100/60 bg-amber-50/20 opacity-85 hover:opacity-100"
+                  : "border-pink-200 bg-white shadow-md shadow-pink-950/5"
               }`}
             >
               <div className="flex items-start gap-4">
-                {/* Icon Box */}
                 <div
-                  className={`w-11 h-11 rounded-xl border flex items-center justify-center text-xl shrink-0 ${
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xl ${
                     notif.read
-                      ? 'bg-stone-50 border-stone-200'
-                      : 'bg-pink-50 border-pink-200 shadow-sm'
+                      ? "border-stone-200 bg-stone-50"
+                      : "border-pink-200 bg-pink-50 shadow-sm"
                   }`}
                 >
                   {getEmojiIcon(notif.type)}
                 </div>
 
-                {/* Details */}
                 <div>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <h4 className={`text-sm font-bold ${notif.read ? 'text-stone-700' : 'text-pink-950'}`}>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h4
+                      className={`text-sm font-bold ${
+                        notif.read ? "text-stone-700" : "text-pink-950"
+                      }`}
+                    >
                       {notif.title}
                     </h4>
+
                     {!notif.read && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-pink-100 text-pink-700 border border-pink-200">
+                      <span className="rounded-full border border-pink-200 bg-pink-100 px-2 py-0.5 text-[10px] font-semibold text-pink-700">
                         New
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-stone-600 mt-1 leading-relaxed">
+
+                  <p className="mt-1 text-xs leading-relaxed text-stone-600">
                     {notif.message}
                   </p>
-                  <span className="text-[11px] text-pink-900/50 mt-1.5 block font-medium">
+
+                  <span className="mt-1.5 block text-[11px] font-medium text-pink-900/50">
                     🕒 {notif.time}
                   </span>
                 </div>
               </div>
 
-              {/* Action Button */}
               {!notif.read && (
                 <button
+                  type="button"
                   onClick={() => markAsRead(notif.id)}
-                  className="self-end sm:self-center text-xs font-semibold text-pink-700 hover:text-white bg-pink-50 hover:bg-pink-600 px-3.5 py-2 rounded-xl transition-all border border-pink-200 whitespace-nowrap"
+                  className="self-end whitespace-nowrap rounded-xl border border-pink-200 bg-pink-50 px-3.5 py-2 text-xs font-semibold text-pink-700 transition-all hover:bg-pink-600 hover:text-white sm:self-center"
                 >
                   Mark as Read
                 </button>
               )}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

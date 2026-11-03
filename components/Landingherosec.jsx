@@ -1,4 +1,12 @@
-export default function Landingherosec() {
+export default function Landingherosec({ hero = {} }) {
+  const {
+    before = "Style That Speaks,",
+    accent = "Elegance",
+    after = "That Lasts.",
+    text = "",
+    buttonLabel = "Shop Now",
+    buttonHref = "#products",
+  } = hero;
   return (
     <section
       id="home"
@@ -7,24 +15,22 @@ export default function Landingherosec() {
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">
         {/* Main heading */}
         <h1 className="font-playfair text-4xl leading-[1.15] tracking-tight text-balance sm:text-5xl lg:text-6xl">
-          Style That Speaks,{" "}
-          <span className="italic text-[#b37b95]">Elegance</span> That Lasts.
+          {before}{" "}
+          <span className="italic text-[#b37b95]">{accent}</span> {after}
         </h1>
 
         {/* Heading ke neechay wazahat */}
         <p className="mt-6 max-w-2xl text-base leading-7 text-[#6b675e] text-pretty sm:text-lg">
-          Discover the perfect blend of fashion and elegance with our collection
-          of dresses, shoes, and bags. Find your style, express yourself, and
-          make every moment fashionable.
+          {text}
         </p>
 
         {/* Button */}
         <div className="mt-10 flex flex-wrap justify-center gap-4">
           <a
-            href="#products"
+            href={buttonHref}
             className="rounded-full bg-[#b37b95] px-8 py-3 text-sm font-medium text-white transition hover:bg-[#34372b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f2119]"
           >
-            Shop Now
+            {buttonLabel}
           </a>
         </div>
       </div>

@@ -1,6 +1,10 @@
 "use client";
 
+import { useCurrency } from "@/lib/useCurrency";
+import { formatPrice } from "@/lib/format";
+
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { demoProducts } from "@/data/products";
 
 // Standardize product structure from any data source (API or local demo)
@@ -37,6 +41,7 @@ function normalizeProduct(item, index) {
 }
 
 export default function ProductsPage() {
+  const currency = useCurrency();   // 👈 pehli line
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataSource, setDataSource] = useState("loading"); // "live", "fallback", "loading"
@@ -48,8 +53,6 @@ export default function ProductsPage() {
 
   // Reliable fetch with multi-stage fallback
   const fetchProducts = useCallback(async () => {
-    setLoading(true);
-
     const loadFallback = () => {
       const fallbackList = demoProducts.map(normalizeProduct);
       setProducts(fallbackList);
@@ -79,6 +82,9 @@ export default function ProductsPage() {
   }, []);
 
   useEffect(() => {
+    // Mount par ek dafa data load karna maqsad hai. Ye rule "await" ke baad wala
+    // setState pehchan nahi pata, is liye sirf isi call par rule band hai.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchProducts();
   }, [fetchProducts]);
 
@@ -145,10 +151,7 @@ export default function ProductsPage() {
     });
   }, [products, searchQuery, selectedCategory]);
 
-  // Reset pagination when filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedCategory]);
+  // Filter badalne par page 1 se shuru — reset har onChange handler me hota hai.
 
   // Pagination
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
@@ -174,7 +177,10 @@ export default function ProductsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={fetchProducts}
+            onClick={() => {
+              setLoading(true);
+              fetchProducts();
+            }}
             disabled={loading}
             className="flex items-center gap-1.5 rounded-xl border border-pink-200 bg-white px-3.5 py-2 text-xs font-semibold text-[#831843] shadow-sm transition hover:bg-pink-50 disabled:opacity-50"
             title="Refresh inventory from API"
@@ -187,14 +193,13 @@ export default function ProductsPage() {
             {filteredProducts.length} Items Found
           </span>
 
-          <button
-            type="button"
+          <Link
+            href="/admin/products/manage"
             className="flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-pink-700"
-            onClick={() => alert("Add Product modal ready to connect with your database.")}
           >
             <PlusIcon className="h-4 w-4" />
-            Add Product
-          </button>
+            Manage Products
+          </Link>
         </div>
       </header>
 
@@ -209,7 +214,10 @@ export default function ProductsPage() {
           </div>
           <button
             type="button"
-            onClick={fetchProducts}
+            onClick={() => {
+              setLoading(true);
+              fetchProducts();
+            }}
             className="font-semibold underline hover:text-amber-950"
           >
             Retry Live API
@@ -260,7 +268,10 @@ export default function ProductsPage() {
             type="text"
             placeholder="Search by title or description..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full rounded-xl border border-pink-100 bg-[#fdf2f8]/40 py-2.5 pl-10 pr-4 text-sm text-[#3f1d2e] outline-none transition focus:border-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-100"
           />
         </div>
@@ -269,7 +280,10 @@ export default function ProductsPage() {
         <div className="flex items-center gap-3">
           <select
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setCurrentPage(1);
+            }}
             className="rounded-xl border border-pink-100 bg-white px-3 py-2.5 text-sm font-medium capitalize text-[#831843] outline-none transition focus:border-pink-300"
           >
             {categories.map((cat) => (
@@ -337,6 +351,7 @@ export default function ProductsPage() {
             onClick={() => {
               setSearchQuery("");
               setSelectedCategory("all");
+              setCurrentPage(1);
             }}
             className="mt-4 rounded-xl bg-pink-50 px-4 py-2 text-sm font-medium text-pink-700 transition hover:bg-pink-100"
           >
@@ -392,7 +407,7 @@ export default function ProductsPage() {
               {/* Price & Rating */}
               <div className="mt-4 flex items-center justify-between border-t border-pink-50 pt-3">
                 <span className="text-base font-bold text-[#831843]">
-                  ${Number(product.price || 0).toFixed(2)}
+                  {formatPrice(product.price, currency)}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-amber-500">
                   ★ {Number(product.rating?.rate || 0).toFixed(1)}{" "}
@@ -459,7 +474,7 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 font-semibold text-[#831843]">
-                      ${Number(product.price || 0).toFixed(2)}
+                      {formatPrice(product.price, currency)}
                     </td>
                     <td className="px-4 py-3 text-amber-500">
                       ★ {Number(product.rating?.rate || 0).toFixed(1)}{" "}

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 // Navbar ke links. Naya link chahiye to yahan add karo —
@@ -9,30 +10,41 @@ const navLinks = [
   { label: "Access", href: "/login" },
 ];
 
-export default function Landingnavbar() {
+export default function Landingnavbar({ storeName = "Storelo", logo = "" }) {
   return (
     <header className="sticky top-0 z-20 bg-[#b37b95] shadow-sm backdrop-blur ">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-8 gap-y-3 px-5 py-3.5 sm:px-8">
         {/* Logo — left side */}
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-[#e6d3a3] text-[#3c3e2d]">
-            {/* shopping bag icon */}
-            <svg
-              viewBox="0 0 24 24"
-              className="h-[18px] w-[18px]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M6 8h12l-1 11H7L6 8Z" />
-              <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-            </svg>
-          </span>
+          {logo ? (
+            <Image
+              src={logo}
+              alt={storeName}
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-full object-cover"
+            />
+          ) : (
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-[#e6d3a3] text-[#3c3e2d]">
+              {/* shopping bag icon */}
+              <svg
+                viewBox="0 0 24 24"
+                className="h-[18px] w-[18px]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M6 8h12l-1 11H7L6 8Z" />
+                <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+              </svg>
+            </span>
+          )}
+
           <span className="text-xl font-semibold tracking-wide text-[#f4f1e7]">
-            Storelo
+            {storeName}
           </span>
         </Link>
 
@@ -54,4 +66,4 @@ export default function Landingnavbar() {
       </div>
     </header>
   );
-}
+}                                                                               

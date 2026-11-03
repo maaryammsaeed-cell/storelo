@@ -1,8 +1,14 @@
 "use client";
 
+import { useCurrency } from "@/lib/useCurrency";
+import { formatPrice } from "@/lib/format";
+
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 
 export default function CustomersPage() {
+
+  const currency = useCurrency();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,7 +20,6 @@ export default function CustomersPage() {
 
   // Fetch customers from internal API
   const fetchCustomers = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fetch("/api/customers", { cache: "no-store" });
       if (res.ok) {
@@ -29,6 +34,9 @@ export default function CustomersPage() {
   }, []);
 
   useEffect(() => {
+    // Mount par ek dafa data load karna maqsad hai. Ye rule "await" ke baad wala
+    // setState pehchan nahi pata, is liye sirf isi call par rule band hai.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCustomers();
   }, [fetchCustomers]);
 
@@ -66,14 +74,14 @@ export default function CustomersPage() {
       },
       {
         title: "Customer Lifetime Value",
-        value: `$${totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+        value: formatPrice(totalRevenue, currency),
         description: "Total revenue across all shoppers",
         icon: CurrencyDollarIcon,
         bgClass: "bg-amber-50/50 border-amber-100",
         iconClass: "text-amber-600 bg-amber-100/70",
       },
     ];
-  }, [customers]);
+  }, [customers , currency]);
 
   // Filter & Sort customers
   const filteredCustomers = useMemo(() => {
@@ -105,10 +113,7 @@ export default function CustomersPage() {
     return result;
   }, [customers, searchQuery, selectedStatus, sortBy]);
 
-  // Reset pagination on filter change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedStatus, sortBy]);
+  // Filter badalne par page 1 se shuru — reset har onChange handler me hota hai.
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage) || 1;
@@ -134,7 +139,10 @@ export default function CustomersPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={fetchCustomers}
+            onClick={() => {
+              setLoading(true);
+              fetchCustomers();
+            }}
             disabled={loading}
             className="flex items-center gap-1.5 rounded-xl border border-pink-200 bg-white px-3.5 py-2 text-xs font-semibold text-[#831843] shadow-sm transition hover:bg-pink-50 disabled:opacity-50"
             title="Refresh customer data"
@@ -147,14 +155,13 @@ export default function CustomersPage() {
             {filteredCustomers.length} Customers Found
           </span>
 
-          <button
-            type="button"
-            onClick={() => alert("Add Customer modal placeholder — ready for backend connection.")}
+          <Link
+            href="/admin/customers/manage"
             className="flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-pink-700"
           >
             <PlusIcon className="h-4 w-4" />
-            Add Customer
-          </button>
+            Manage Customers
+          </Link>
         </div>
       </header>
 
@@ -199,7 +206,10 @@ export default function CustomersPage() {
             type="text"
             placeholder="Search customer by name, email, city..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full rounded-xl border border-pink-100 bg-[#fdf2f8]/40 py-2.5 pl-10 pr-4 text-sm text-[#3f1d2e] outline-none transition focus:border-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-100"
           />
         </div>
@@ -209,7 +219,10 @@ export default function CustomersPage() {
           {/* Status Dropdown */}
           <select
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
+            onChange={(e) => {
+              setSelectedStatus(e.target.value);
+              setCurrentPage(1);
+            }}
             className="rounded-xl border border-pink-100 bg-white px-3 py-2.5 text-sm font-medium text-[#831843] outline-none transition focus:border-pink-300"
           >
             <option value="all">All Statuses</option>
@@ -221,7 +234,10 @@ export default function CustomersPage() {
           {/* Sort Dropdown */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setCurrentPage(1);
+            }}
             className="rounded-xl border border-pink-100 bg-white px-3 py-2.5 text-sm font-medium text-[#831843] outline-none transition focus:border-pink-300"
           >
             <option value="orders-desc">Most Orders</option>
@@ -254,6 +270,7 @@ export default function CustomersPage() {
             onClick={() => {
               setSearchQuery("");
               setSelectedStatus("all");
+              setCurrentPage(1);
             }}
             className="mt-4 rounded-xl bg-pink-50 px-4 py-2 text-sm font-medium text-pink-700 transition hover:bg-pink-100"
           >
@@ -321,7 +338,7 @@ export default function CustomersPage() {
                             {cust.ordersCount || 0} orders
                           </span>
                           <span className="text-xs font-semibold text-[#831843]">
-                            ${Number(cust.totalSpent || 0).toFixed(2)}
+                            {formatPrice(cust.totalSpent || 0, currency)}
                           </span>
                         </div>
                       </td>
@@ -360,6 +377,12 @@ export default function CustomersPage() {
                           >
                             Details
                           </button>
+                          <Link
+                            href="/admin/customers/manage"
+                            className="rounded-lg border border-pink-200 bg-white px-2.5 py-1 text-xs font-medium text-[#831843] transition hover:bg-pink-50"
+                          >
+                            Manage
+                          </Link>
                           <a
                             href={`mailto:${cust.email}`}
                             className="rounded-lg bg-pink-50 p-1.5 text-pink-700 transition hover:bg-pink-100"
@@ -457,7 +480,7 @@ export default function CustomersPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[#9d6b82]">Total Spending:</span>
-                <span className="font-bold text-pink-600">${Number(selectedCustomer.totalSpent || 0).toFixed(2)}</span>
+                <span className="font-bold text-pink-600">{formatPrice(selectedCustomer.totalSpent || 0, currency)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#9d6b82]">Status:</span>

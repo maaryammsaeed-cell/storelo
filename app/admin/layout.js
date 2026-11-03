@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/auth";
+import { getSettings } from "@/lib/settings"; 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 
 export const instant = false;
@@ -12,9 +13,11 @@ export default async function AdminLayout({ children }) {
 
   if (!admin) redirect("/login");
 
+  const settings = await getSettings();             // 👈 NAYA
+
   return (
     <div className="min-h-screen bg-[#fdf2f8] text-[#3f1d2e] md:flex">
-      <AdminSidebar email={admin.email} />
+      <AdminSidebar email={admin.email} storeName={settings.storeName} />
       <main className="min-w-0 flex-1 p-5 sm:p-8">{children}</main>
     </div>
   );

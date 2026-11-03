@@ -1,5 +1,16 @@
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/auth";
+import connectDB from "@/lib/mongodb";
+import Admin from "@/lib/models/Admin";
+
 import { connection } from "next/server";
 import { getDemoStoreData } from "@/lib/demo-api";
+import RevenueTrendChart from "@/components/admin/charts/RevenueTrendChart";
+import CategoryDonutChart from "@/components/admin/charts/CategoryDonutChart";
+import CategoryBarChart from "@/components/admin/charts/CategoryBarChart";
+
+import { getSettings } from "@/lib/settings";   // 👈 NAYA
+import { formatPrice } from "@/lib/format";     // 👈 NAYA
 
 async function getStoreData() {
   try {
@@ -9,10 +20,29 @@ async function getStoreData() {
     return null;
   }
 }
+// Logged-in admin ka asli naam/email database se laata hai
+async function getAdminProfile() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("admin_token")?.value;
+    const session = token ? await verifyToken(token) : null;
+    if (!session) return { name: "Admin", email: "" };
 
-function formatCurrency(value) {
-  return `$${Number(value || 0).toFixed(2)}`;
+    await connectDB();
+    const doc = await Admin.findById(session.sub).select("name email").lean();
+
+    return {
+      name: doc?.name || "Admin",
+      email: doc?.email || session.email || "",
+    };
+  } catch {
+    return { name: "Admin", email: "" };
+  }
 }
+function formatCurrency(value , currency) {
+  return formatPrice(value, currency);
+}
+
 
 function formatDate(value) {
   return new Date(value).toLocaleDateString("en-US", {
@@ -32,11 +62,23 @@ function getInitials(name) {
     .toUpperCase();
 }
 
+function toDayKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default async function AdminPage() {
   // Next ko batata hai ke ye page har request par fresh render ho.
   await connection();
-
+  const adminProfile = await getAdminProfile();   // 👈 NAYA
   const data = await getStoreData();
+
+
+// 👇 NAYA
+const settings = await getSettings();
+const currency = settings.currency;
 
   const products = data?.products || [];
   const carts = data?.carts || [];
@@ -70,8 +112,6 @@ export default async function AdminPage() {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 6);
 
-  const maxRevenue = Math.max(...revenueByCategory.map((item) => item.revenue), 1);
-
   const categoryCounts = Object.entries(
     products.reduce((acc, product) => {
       const category = product.category || "Other";
@@ -83,7 +123,43 @@ export default async function AdminPage() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 
-  const maxCount = Math.max(...categoryCounts.map((item) => item.count), 1);
+  // ---------- Revenue trend (last 14 days) ----------
+  const trendDays = 14;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const trendBuckets = Array.from({ length: trendDays }, (_, index) => {
+    const date = new Date(todayStart);
+    date.setDate(date.getDate() - (trendDays - 1 - index));
+
+    return {
+      key: toDayKey(date),
+      day: date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      revenue: 0,
+    };
+  });
+
+  const trendMap = new Map(trendBuckets.map((item) => [item.key, item]));
+
+  carts.forEach((cart) => {
+    const bucket = trendMap.get(toDayKey(new Date(cart.date)));
+    if (!bucket) return;
+
+    const cartTotal = (cart.products || []).reduce((sum, item) => {
+      const product = products.find((p) => p.id === item.productId);
+      return sum + (product ? product.price * item.quantity : 0);
+    }, 0);
+
+    bucket.revenue += cartTotal;
+  });
+
+  const revenueTrendData = trendBuckets.map((item) => ({
+    day: item.day,
+    revenue: Number(item.revenue.toFixed(2)),
+  }));
 
   const recentOrders = [...carts]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -148,8 +224,8 @@ export default async function AdminPage() {
     },
     {
       title: "Total Revenue",
-      value: formatCurrency(totalRevenue),
-      description: `Avg. order ${formatCurrency(averageOrder)}`,
+      value: formatCurrency(totalRevenue ,currency),
+      description: `Avg. order ${formatCurrency(averageOrder , currency)}`,
       icon: DollarIcon,
       iconClass: "bg-amber-100 text-amber-600",
       glow: "bg-amber-200",
@@ -171,7 +247,7 @@ export default async function AdminPage() {
             </span>
 
             <h1 className="mt-4 font-playfair text-3xl leading-tight text-[#831843] sm:text-4xl">
-              Welcome back, Admin
+              Welcome back, {adminProfile.name}
             </h1>
 
             <p className="mt-2 max-w-xl text-sm leading-6 text-[#9d6b82]">
@@ -191,14 +267,14 @@ export default async function AdminPage() {
 
           <div className="flex w-full items-center gap-3 rounded-2xl border border-white bg-white/80 p-3 shadow-sm backdrop-blur sm:w-auto sm:pr-6">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-pink-400 to-rose-500 text-sm font-bold text-white">
-              SA
+              {getInitials(adminProfile.name)}
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-[#831843]">
-                Storelo Admin
+                {adminProfile.name}
               </p>
               <p className="truncate text-xs text-[#9d6b82]">
-                admin@storelo.com
+                {adminProfile.email}
               </p>
             </div>
           </div>
@@ -250,7 +326,30 @@ export default async function AdminPage() {
             })}
           </div>
 
-          {/* ---------- CSS bar charts ---------- */}
+          {/* ---------- Revenue trend ---------- */}
+          <section className="mb-6 rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-[#831843]">
+                  Revenue Trend
+                </h2>
+                <p className="mt-1 text-sm text-[#9d6b82]">
+                  Last 14 days of demo orders.
+                </p>
+              </div>
+              <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-semibold text-pink-700 ring-1 ring-pink-100">
+                {formatCurrency(
+                  revenueTrendData.reduce((sum, item) => sum + item.revenue, 0) , currency
+                )}
+              </span>
+            </div>
+
+            <div className="mt-4">
+              <RevenueTrendChart data={revenueTrendData} currency={currency} />
+            </div>
+          </section>
+
+          {/* ---------- Category charts ---------- */}
           <div className="mb-6 grid gap-4 lg:grid-cols-2">
             <section className="rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -263,7 +362,7 @@ export default async function AdminPage() {
                   </p>
                 </div>
                 <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-semibold text-pink-700 ring-1 ring-pink-100">
-                  {formatCurrency(totalRevenue)}
+                  {revenueByCategory.length} categories
                 </span>
               </div>
 
@@ -272,29 +371,12 @@ export default async function AdminPage() {
                   No sales data available.
                 </p>
               ) : (
-                <div className="mt-5 space-y-4">
-                  {revenueByCategory.map((item) => {
-                    const percent = (item.revenue / maxRevenue) * 100;
-
-                    return (
-                      <div key={item.category}>
-                        <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
-                          <span className="truncate capitalize text-[#5b2b3d]">
-                            {item.category}
-                          </span>
-                          <span className="shrink-0 font-semibold text-[#831843]">
-                            {formatCurrency(item.revenue)}
-                          </span>
-                        </div>
-                        <div className="h-2.5 overflow-hidden rounded-full bg-pink-50">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-pink-400 to-rose-500 transition-all duration-500"
-                            style={{ width: `${Math.max(percent, 3)}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="mt-4">
+                  <CategoryDonutChart
+                    data={revenueByCategory} 
+                    total={totalRevenue}
+                    currency={currency}
+                  />
                 </div>
               )}
             </section>
@@ -319,29 +401,8 @@ export default async function AdminPage() {
                   No products available.
                 </p>
               ) : (
-                <div className="mt-5 space-y-4">
-                  {categoryCounts.map((item) => {
-                    const percent = (item.count / maxCount) * 100;
-
-                    return (
-                      <div key={item.category}>
-                        <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
-                          <span className="truncate capitalize text-[#5b2b3d]">
-                            {item.category}
-                          </span>
-                          <span className="shrink-0 font-semibold text-[#831843]">
-                            {item.count}
-                          </span>
-                        </div>
-                        <div className="h-2.5 overflow-hidden rounded-full bg-rose-50">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-rose-300 to-fuchsia-400 transition-all duration-500"
-                            style={{ width: `${Math.max(percent, 3)}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="mt-4">
+                  <CategoryBarChart data={categoryCounts} />
                 </div>
               )}
             </section>
@@ -388,7 +449,7 @@ export default async function AdminPage() {
                         </div>
                       </div>
                       <p className="shrink-0 text-sm font-semibold text-[#831843]">
-                        {formatCurrency(order.total)}
+                        {formatCurrency(order.total , currency)}
                       </p>
                     </li>
                   ))}
@@ -434,7 +495,7 @@ export default async function AdminPage() {
                             {order.items}
                           </td>
                           <td className="whitespace-nowrap px-5 py-3 font-semibold text-[#831843]">
-                            {formatCurrency(order.total)}
+                            {formatCurrency(order.total , currency)}
                           </td>
                         </tr>
                       ))}
@@ -452,7 +513,7 @@ export default async function AdminPage() {
           Storelo — Simplifying Your Store Management
         </p>
         <p className="mt-1 text-xs text-[#9d6b82]">
-          Demo dashboard powered by FakeStore API
+          Demo dashboard powered by DummyJSON API
         </p>
       </footer>
     </section>

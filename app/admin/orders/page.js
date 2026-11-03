@@ -1,8 +1,13 @@
 "use client";
 
+import { useCurrency } from "@/lib/useCurrency";
+import { formatPrice } from "@/lib/format";
+
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 
 export default function OrdersPage() {
+  const currency = useCurrency(); 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,7 +19,6 @@ export default function OrdersPage() {
 
   // Fetch orders from internal API
   const fetchOrders = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fetch("/api/orders", { cache: "no-store" });
       if (res.ok) {
@@ -29,6 +33,9 @@ export default function OrdersPage() {
   }, []);
 
   useEffect(() => {
+    // Mount par ek dafa data load karna maqsad hai. Ye rule "await" ke baad wala
+    // setState pehchan nahi pata, is liye sirf isi call par rule band hai.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders();
   }, [fetchOrders]);
 
@@ -75,14 +82,13 @@ export default function OrdersPage() {
       },
       {
         title: "Total Revenue",
-        value: `$${totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        description: "Gross order sales value",
+        value: formatPrice(totalRevenue, currency),
         icon: DollarSignIcon,
         bgClass: "bg-purple-50/50 border-purple-100",
         iconClass: "text-purple-600 bg-purple-100/70",
       },
     ];
-  }, [orders]);
+  }, [orders , currency]);
 
   // Filter & Sort orders
   const filteredOrders = useMemo(() => {
@@ -116,10 +122,7 @@ export default function OrdersPage() {
     return result;
   }, [orders, searchQuery, selectedStatus, sortBy]);
 
-  // Reset pagination on filter change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedStatus, sortBy]);
+  // Filter badalne par page 1 se shuru — reset har onChange handler me hota hai.
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage) || 1;
@@ -176,7 +179,10 @@ export default function OrdersPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={fetchOrders}
+            onClick={() => {
+              setLoading(true);
+              fetchOrders();
+            }}
             disabled={loading}
             className="flex items-center gap-1.5 rounded-xl border border-pink-200 bg-white px-3.5 py-2 text-xs font-semibold text-[#831843] shadow-sm transition hover:bg-pink-50 disabled:opacity-50"
             title="Refresh order data"
@@ -189,14 +195,13 @@ export default function OrdersPage() {
             {filteredOrders.length} Orders Found
           </span>
 
-          <button
-            type="button"
-            onClick={() => alert("Export orders CSV placeholder")}
+          <Link
+            href="/admin/orders/manage"
             className="flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-pink-700"
           >
-            <DownloadIcon className="h-4 w-4" />
-            Export Orders
-          </button>
+            <PlusIcon className="h-4 w-4" />
+            Manage Orders
+          </Link>
         </div>
       </header>
 
@@ -241,7 +246,10 @@ export default function OrdersPage() {
             type="text"
             placeholder="Search by order ID (ORD-9201), customer name, or item..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full rounded-xl border border-pink-100 bg-[#fdf2f8]/40 py-2.5 pl-10 pr-4 text-sm text-[#3f1d2e] outline-none transition focus:border-pink-300 focus:bg-white focus:ring-2 focus:ring-pink-100"
           />
         </div>
@@ -251,7 +259,10 @@ export default function OrdersPage() {
           {/* Status Dropdown */}
           <select
             value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
+            onChange={(e) => {
+              setSelectedStatus(e.target.value);
+              setCurrentPage(1);
+            }}
             className="rounded-xl border border-pink-100 bg-white px-3 py-2.5 text-sm font-medium text-[#831843] outline-none transition focus:border-pink-300"
           >
             <option value="all">All Statuses</option>
@@ -264,7 +275,10 @@ export default function OrdersPage() {
           {/* Sort Dropdown */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              setCurrentPage(1);
+            }}
             className="rounded-xl border border-pink-100 bg-white px-3 py-2.5 text-sm font-medium text-[#831843] outline-none transition focus:border-pink-300"
           >
             <option value="latest">Latest Date</option>
@@ -297,6 +311,7 @@ export default function OrdersPage() {
             onClick={() => {
               setSearchQuery("");
               setSelectedStatus("all");
+              setCurrentPage(1);
             }}
             className="mt-4 rounded-xl bg-pink-50 px-4 py-2 text-sm font-medium text-pink-700 transition hover:bg-pink-100"
           >
@@ -366,7 +381,7 @@ export default function OrdersPage() {
                       {/* Total & Payment */}
                       <td className="px-5 py-3.5">
                         <p className="font-bold text-[#831843]">
-                          ${Number(order.totalAmount || 0).toFixed(2)}
+                         {formatPrice(order.totalAmount, currency)}
                         </p>
                         <div className="flex items-center gap-1.5 text-[11px] text-[#9d6b82]">
                           <span>{order.paymentMethod}</span>
@@ -397,6 +412,12 @@ export default function OrdersPage() {
                           >
                             Invoice
                           </button>
+                          <Link
+                            href="/admin/orders/manage"
+                            className="rounded-lg border border-pink-200 bg-white px-2.5 py-1 text-xs font-medium text-[#831843] transition hover:bg-pink-50"
+                          >
+                            Manage
+                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -489,7 +510,7 @@ export default function OrdersPage() {
               </div>
               <div className="flex justify-between border-t border-pink-100 pt-2 text-sm">
                 <span className="font-semibold text-[#831843]">Total Paid:</span>
-                <span className="font-bold text-pink-600">${Number(selectedOrder.totalAmount || 0).toFixed(2)}</span>
+                <span className="font-bold text-pink-600">{formatPrice(selectedOrder.totalAmount, currency)}</span>
               </div>
             </div>
 
@@ -588,6 +609,15 @@ function RefreshIcon({ className }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19" />
+    </svg>
+  );
+}
+
+function PlusIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
     </svg>
   );
 }

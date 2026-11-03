@@ -1,5 +1,5 @@
 import Image from "next/image";
-
+import { formatPrice } from "@/lib/format";   // 👈 NAYA
 // Ek product ki rating 5 sitaron me dikhata hai (gold = bhari hui, grey = khali)
 function RatingStars({ rating, reviews }) {
   const roundedRating = Math.round(rating);
@@ -27,7 +27,7 @@ function RatingStars({ rating, reviews }) {
 }
 
 // Ek product ka card: image, sale badge, name, price, colors aur rating
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, currency }) {
   return (
     <article className="group">
       {/* Product image */}
@@ -52,10 +52,12 @@ export default function ProductCard({ product }) {
         <h3 className="text-sm text-[#1f2119]">{product.title}</h3>
 
         <p className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-[#1f2119]">${product.price}</span>
+          <span className="font-medium text-[#1f2119]">
+            {formatPrice(product.price, currency)}
+          </span>
           {product.oldPrice ? (
             <span className="text-[#9a958a] line-through">
-              ${product.oldPrice}
+              {formatPrice(product.oldPrice, currency)}
             </span>
           ) : null}
         </p>
