@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import { readData, writeData } from "@/lib/db";
-
+import { createProduct, listProducts } from "@/lib/repo/products";
+import { getProduct, updateProduct, softDeleteProduct } from "@/lib/repo/products";
+import { countOrdersUsingProduct } from "@/lib/repo/orders";
 // Only a logged-in admin can use these routes.
 async function getAdmin() {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_token")?.value;
- const products = (await readData("products")).filter((p) => !p.deletedAt);
+ 
   return token ? await verifyToken(token) : null;
 }
 
@@ -18,7 +19,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const products = await readData("products");
+  const products = await listProducts({ includeDeleted: true });
   return NextResponse.json(products);
 }
 
@@ -52,15 +53,13 @@ export async function POST(request) {
     );
   }
 
-  const products = await readData("products");
 
   const allowedStatuses = ["active", "inactive", "discontinued", "preorder","sale"];
   const status = allowedStatuses.includes(body.status)
     ? body.status
     : "active";
 
-  const newProduct = {
-    id: crypto.randomUUID(),
+  const newProduct = await createProduct({
     title: String(body.title).trim(),
     price: Number(body.price),
     category: body.category || "General",
@@ -71,10 +70,7 @@ export async function POST(request) {
     allowBackorder: body.allowBackorder === true,
     preorderReleaseDate:
       status === "preorder" ? body.preorderReleaseDate || null : null,
-  };
-
-  products.push(newProduct);
-  await writeData("products", products);
+  });
 
   return NextResponse.json(newProduct, { status: 201 });
 }

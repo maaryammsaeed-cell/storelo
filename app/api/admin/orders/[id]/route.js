@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import { readData, writeData } from "@/lib/db";
+import { deleteOrder, getOrder, updateOrder } from "@/lib/repo/orders";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -19,58 +19,50 @@ export async function PATCH(request, ctx) {
   const { id } = await ctx.params;
   const body = await request.json();
 
-  const orders = await readData("orders");
-  const index = orders.findIndex((item) => String(item.id) === String(id));
-
-  if (index === -1) {
+  const existing = await getOrder(id);
+  if (!existing) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  const existing = orders[index];
+  const patch = {};
 
-  const customerName =
-    body.customerName !== undefined
-      ? body.customerName
-      : body.customer?.name !== undefined
-      ? body.customer.name
-      : existing.customer?.name;
+  if (body.orderNumber !== undefined) patch.orderNumber = String(body.orderNumber).trim();
+  if (body.itemsCount !== undefined) patch.itemsCount = Number(body.itemsCount);
+  if (body.itemsSummary !== undefined) patch.itemsSummary = String(body.itemsSummary);
+  if (body.totalAmount !== undefined) patch.totalAmount = Number(body.totalAmount);
+  if (body.status !== undefined) patch.status = body.status;
+  if (body.paymentMethod !== undefined) patch.paymentMethod = body.paymentMethod;
+  if (body.paymentStatus !== undefined) patch.paymentStatus = body.paymentStatus;
 
-  const customerEmail =
-    body.customerEmail !== undefined
-      ? body.customerEmail
-      : body.customer?.email !== undefined
-      ? body.customer.email
-      : existing.customer?.email;
+  // customer nested object hai — merge karo, replace nahi
+  const name = body.customerName ?? body.customer?.name;
+  const email = body.customerEmail ?? body.customer?.email;
 
-  const avatar = customerName
-    ? customerName
-        .split(" ")
-        .filter(Boolean)
-        .map((w) => w[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
-    : existing.customer?.avatar || "CU";
+  if (name !== undefined || email !== undefined) {
+    const finalName = String(name ?? existing.customer?.name ?? "").trim();
 
-  orders[index] = {
-    ...existing,
-    orderNumber: body.orderNumber ?? existing.orderNumber,
-    customer: {
-      name: String(customerName || "").trim(),
-      email: String(customerEmail || "").trim().toLowerCase(),
+    const avatar =
+      body.customer?.avatar ??
+      (finalName
+        ? finalName
+            .split(" ")
+            .filter(Boolean)
+            .map((w) => w[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase()
+        : existing.customer?.avatar || "CU");
+
+    patch.customer = {
+      ...existing.customer,
+      name: finalName,
+      email: String(email ?? existing.customer?.email ?? "").trim().toLowerCase(),
       avatar,
-    },
-    itemsCount: body.itemsCount !== undefined ? Number(body.itemsCount) : existing.itemsCount,
-    itemsSummary: body.itemsSummary ?? existing.itemsSummary,
-    totalAmount: body.totalAmount !== undefined ? Number(body.totalAmount) : existing.totalAmount,
-    status: body.status ?? existing.status,
-    paymentMethod: body.paymentMethod ?? existing.paymentMethod,
-    paymentStatus: body.paymentStatus ?? existing.paymentStatus,
-  };
+    };
+  }
 
-  await writeData("orders", orders);
-
-  return NextResponse.json(orders[index]);
+  const updated = await updateOrder(id, patch);
+  return NextResponse.json(updated);
 }
 
 // DELETE /api/admin/orders/:id  → remove an order
@@ -82,14 +74,10 @@ export async function DELETE(request, ctx) {
 
   const { id } = await ctx.params;
 
-  const orders = await readData("orders");
-  const remaining = orders.filter((item) => String(item.id) !== String(id));
-
-  if (remaining.length === orders.length) {
+  const removed = await deleteOrder(id);
+  if (!removed) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
-
-  await writeData("orders", remaining);
 
   return NextResponse.json({ ok: true });
 }

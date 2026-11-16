@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import { readData, writeData } from "@/lib/db";
+import {
+  deleteCustomer,
+  getCustomer,
+  getCustomerByEmail,
+  updateCustomer,
+} from "@/lib/repo/customers";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -19,73 +24,54 @@ export async function PATCH(request, ctx) {
   const { id } = await ctx.params;
   const body = await request.json();
 
-  const customers = await readData("customers");
-  const index = customers.findIndex((item) => String(item.id) === String(id));
-
-  if (index === -1) {
+  const existing = await getCustomer(id);
+  if (!existing) {
     return NextResponse.json({ error: "Customer not found" }, { status: 404 });
   }
 
-  const existing = customers[index];
+  const patch = {};
 
-  const firstname =
-    body.firstname !== undefined
-      ? body.firstname
-      : body.name?.firstname !== undefined
-      ? body.name.firstname
-      : existing.name?.firstname;
+  const firstname = body.firstname ?? body.name?.firstname;
+  const lastname = body.lastname ?? body.name?.lastname;
+  if (firstname !== undefined || lastname !== undefined) {
+    patch.name = {
+      firstname: String(firstname ?? existing.name?.firstname ?? "").trim(),
+      lastname: String(lastname ?? existing.name?.lastname ?? "").trim(),
+    };
+  }
 
-  const lastname =
-    body.lastname !== undefined
-      ? body.lastname
-      : body.name?.lastname !== undefined
-      ? body.name.lastname
-      : existing.name?.lastname;
-
-  const city =
-    body.city !== undefined
-      ? body.city
-      : body.address?.city !== undefined
-      ? body.address.city
-      : existing.address?.city;
-
-  const street =
-    body.street !== undefined
-      ? body.street
-      : body.address?.street !== undefined
-      ? body.address.street
-      : existing.address?.street;
-
-  const zipcode =
-    body.zipcode !== undefined
-      ? body.zipcode
-      : body.address?.zipcode !== undefined
-      ? body.address.zipcode
-      : existing.address?.zipcode;
-
-  customers[index] = {
-    ...existing,
-    name: {
-      firstname: String(firstname || "").trim(),
-      lastname: String(lastname || "").trim(),
-    },
-    email: body.email !== undefined ? String(body.email).trim().toLowerCase() : existing.email,
-    username: body.username !== undefined ? String(body.username).trim() : existing.username,
-    phone: body.phone !== undefined ? String(body.phone).trim() : existing.phone,
-    address: {
+  const city = body.city ?? body.address?.city;
+  const street = body.street ?? body.address?.street;
+  const zipcode = body.zipcode ?? body.address?.zipcode;
+  if (city !== undefined || street !== undefined || zipcode !== undefined) {
+    patch.address = {
       ...existing.address,
-      city: String(city || "").trim(),
-      street: String(street || "").trim(),
-      zipcode: String(zipcode || "").trim(),
-    },
-    status: body.status !== undefined ? body.status : existing.status,
-    ordersCount: body.ordersCount !== undefined ? Number(body.ordersCount) : existing.ordersCount,
-    totalSpent: body.totalSpent !== undefined ? Number(body.totalSpent) : existing.totalSpent,
-  };
+      city: String(city ?? existing.address?.city ?? "").trim(),
+      street: String(street ?? existing.address?.street ?? "").trim(),
+      zipcode: String(zipcode ?? existing.address?.zipcode ?? "").trim(),
+    };
+  }
 
-  await writeData("customers", customers);
+  if (body.email !== undefined) {
+    const email = String(body.email).trim().toLowerCase();
+    const duplicate = await getCustomerByEmail(email);
+    if (duplicate && duplicate.id !== id) {
+      return NextResponse.json(
+        { error: "A customer with this email already exists." },
+        { status: 409 }
+      );
+    }
+    patch.email = email;
+  }
 
-  return NextResponse.json(customers[index]);
+  if (body.username !== undefined) patch.username = String(body.username).trim();
+  if (body.phone !== undefined) patch.phone = String(body.phone).trim();
+  if (body.status !== undefined) patch.status = body.status;
+  if (body.ordersCount !== undefined) patch.ordersCount = Number(body.ordersCount);
+  if (body.totalSpent !== undefined) patch.totalSpent = Number(body.totalSpent);
+
+  const updated = await updateCustomer(id, patch);
+  return NextResponse.json(updated);
 }
 
 // DELETE /api/admin/customers/:id  → delete customer
@@ -97,14 +83,10 @@ export async function DELETE(request, ctx) {
 
   const { id } = await ctx.params;
 
-  const customers = await readData("customers");
-  const remaining = customers.filter((item) => String(item.id) !== String(id));
-
-  if (remaining.length === customers.length) {
+  const removed = await deleteCustomer(id);
+  if (!removed) {
     return NextResponse.json({ error: "Customer not found" }, { status: 404 });
   }
-
-  await writeData("customers", remaining);
 
   return NextResponse.json({ ok: true });
 }

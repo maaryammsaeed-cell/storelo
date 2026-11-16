@@ -1,12 +1,12 @@
 import { NextResponse, connection } from "next/server";
-import { readData } from "@/lib/db"
- const products = (await readData("products")).filter((p) => !p.deletedAt); 
+import { listProducts } from "@/lib/repo/products";
+ 
 export async function GET() {
   
   
   await connection();
   
-  const products = await readData("products");
+  const products = await listProducts();
   
   
 

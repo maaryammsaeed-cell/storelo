@@ -1,9 +1,9 @@
 import { NextResponse, connection } from "next/server";
-import { readData } from "@/lib/db";
+import { listCustomers } from "@/lib/repo/customers";
 
 export async function GET() {
   await connection();
 
-  const customers = await readData("customers");
+  const customers = await listCustomers();
   return NextResponse.json(customers);
 }

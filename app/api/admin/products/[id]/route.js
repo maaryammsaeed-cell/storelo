@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import { readData, writeData } from "@/lib/db";
+import { getProduct, updateProduct, softDeleteProduct } from "@/lib/repo/products";
+import { countOrdersUsingProduct } from "@/lib/repo/orders";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -20,32 +21,33 @@ export async function PATCH(request, ctx) {
   const { id } = await ctx.params;
   const body = await request.json();
 
-  const products = await readData("products");
-  const index = products.findIndex((item) => item.id === id);
+  // Sirf wahi fields patch mein jayenge jo request mein aaye hain
+  const patch = {};
 
-  if (index === -1) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  if (body.title !== undefined) {
+    const title = String(body.title).trim();
+    if (!title) {
+      return NextResponse.json({ error: "Title is required." }, { status: 400 });
+    }
+    patch.title = title;
   }
 
   // ---- Price validation ----
-  let price = products[index].price;
   if (body.price !== undefined) {
-    price = Number(body.price);
+    const price = Number(body.price);
     if (!Number.isFinite(price) || price < 0) {
       return NextResponse.json(
         { error: "Price must be 0 or greater." },
         { status: 400 }
       );
     }
+    patch.price = price;
   }
 
   // ---- Stock validation ----
-  let stock = products[index].stock;
   if (body.stock !== undefined) {
-    stock =
-      body.stock === null || body.stock === ""
-        ? null
-        : Number(body.stock);
+    const stock =
+      body.stock === null || body.stock === "" ? null : Number(body.stock);
 
     if (stock !== null && (!Number.isFinite(stock) || stock < 0)) {
       return NextResponse.json(
@@ -53,45 +55,43 @@ export async function PATCH(request, ctx) {
         { status: 400 }
       );
     }
+    patch.stock = stock;
   }
 
   // ---- Status validation ----
   const allowedStatuses = ["active", "inactive", "discontinued", "preorder", "sale"];
-  const status =
-    body.status !== undefined
-      ? allowedStatuses.includes(body.status)
-        ? body.status
-        : products[index].status
-      : products[index].status;
+  if (body.status !== undefined && allowedStatuses.includes(body.status)) {
+    patch.status = body.status;
+  }
 
-  products[index] = {
-    ...products[index],
-    title: body.title ?? products[index].title,
-    price,
-    category: body.category ?? products[index].category,
-    image: body.image ?? products[index].image,
-    stock,
-    status,
-    allowBackorder:
-      body.allowBackorder !== undefined
-        ? Boolean(body.allowBackorder)
-        : products[index].allowBackorder === true,
-    preorderReleaseDate:
-      body.preorderReleaseDate !== undefined
-        ? body.preorderReleaseDate || null
-        : products[index].preorderReleaseDate ?? null,
-        description:
-    body.description !== undefined
-      ? String(body.description).trim()
-      : products[index].description ?? "",   // ← naya
-  };
+  if (body.category !== undefined) patch.category = body.category;
+  if (body.image !== undefined) {
+    patch.image = body.image || "/images/products/tshirt.jpg";
+  }
+  if (body.allowBackorder !== undefined) {
+    patch.allowBackorder = Boolean(body.allowBackorder);
+  }
+  if (body.preorderReleaseDate !== undefined) {
+    patch.preorderReleaseDate = body.preorderReleaseDate || null;
+  }
+  if (body.description !== undefined) {
+    patch.description = String(body.description).trim();
+  }
 
-  await writeData("products", products);
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "No fields to update." }, { status: 400 });
+  }
 
-  return NextResponse.json(products[index]);
+  const updated = await updateProduct(id, patch);
+
+  if (!updated) {
+    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(updated);
 }
 
-// DELETE /api/admin/products/:id  → remove one product
+// DELETE /api/admin/products/:id  → soft delete one product
 export async function DELETE(request, ctx) {
   const admin = await getAdmin();
   if (!admin) {
@@ -100,29 +100,23 @@ export async function DELETE(request, ctx) {
 
   const { id } = await ctx.params;
 
-  const [products, orders] = await Promise.all([
-    readData("products"),
-    readData("orders"),
-  ]);
+  // Soft-deleted product yahan nahi milega → 404
+  const product = await getProduct(id);
 
-  const index = products.findIndex((item) => item.id === id);
-
-  if (index === -1) {
+  if (!product) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
 
-  const product = products[index];
-
   // CHECK 1: kya ye product kisi order me hai?
-  const usedInOrders = orders.filter((order) =>
-    (order.items || []).some((item) => item.productId === id)
-  );
+  const usedInOrders = await countOrdersUsingProduct(id);
 
-  if (usedInOrders.length > 0) {
+  if (usedInOrders > 0) {
     return NextResponse.json(
       {
         error: "PRODUCT_IN_USE",
-        message: `Cannot delete product: It is associated with ${usedInOrders.length} existing order${usedInOrders.length === 1 ? "" : "s"}. Please mark the product as inactive or discontinued instead.`,
+        message: `Cannot delete product: It is associated with ${usedInOrders} existing order${
+          usedInOrders === 1 ? "" : "s"
+        }. Please mark the product as inactive or discontinued instead.`,
       },
       { status: 409 }
     );
@@ -135,19 +129,16 @@ export async function DELETE(request, ctx) {
     return NextResponse.json(
       {
         error: "STOCK_REMAINING",
-        message: `Cannot delete product: There are still ${stock} unit${stock === 1 ? "" : "s"} in stock. Please adjust inventory to 0 before deleting.`,
+        message: `Cannot delete product: There are still ${stock} unit${
+          stock === 1 ? "" : "s"
+        } in stock. Please adjust inventory to 0 before deleting.`,
       },
       { status: 409 }
     );
   }
 
   // DELETE: asal me delete nahi, sirf deletedAt laga rahe hain
-  products[index] = {
-    ...product,
-    deletedAt: new Date().toISOString(),
-  };
-
-  await writeData("products", products);
+  await softDeleteProduct(id);
 
   return NextResponse.json({ ok: true });
 }

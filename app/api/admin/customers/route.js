@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import { readData, writeData } from "@/lib/db";
+import { createCustomer, getCustomerByEmail, listCustomers } from "@/lib/repo/customers";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -16,7 +16,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const customers = await readData("customers");
+ const customers = await listCustomers();
   return NextResponse.json(customers);
 }
 
@@ -40,31 +40,24 @@ export async function POST(request) {
     );
   }
 
-  const customers = await readData("customers");
+ 
 
-  const newCustomer = {
-    id: crypto.randomUUID(),
-    name: {
-      firstname,
-      lastname: lastname || "",
-    },
+ const newCustomer = await createCustomer({
+    name: { firstname, lastname: lastname || "" },
     email,
     username: body.username ? String(body.username).trim() : email.split("@")[0],
     phone: body.phone ? String(body.phone).trim() : "",
     address: {
-      city: body.city ? String(body.city).trim() : (body.address?.city || ""),
-      street: body.street ? String(body.street).trim() : (body.address?.street || ""),
+      city: body.city ? String(body.city).trim() : body.address?.city || "",
+      street: body.street ? String(body.street).trim() : body.address?.street || "",
       number: body.number || body.address?.number || "",
-      zipcode: body.zipcode ? String(body.zipcode).trim() : (body.address?.zipcode || ""),
+      zipcode: body.zipcode ? String(body.zipcode).trim() : body.address?.zipcode || "",
     },
     status: body.status || "Active",
     ordersCount: Number(body.ordersCount || 0),
     totalSpent: Number(body.totalSpent || 0),
-    joinedDate: body.joinedDate || new Date().toISOString().slice(0, 10),
-  };
-
-  customers.unshift(newCustomer);
-  await writeData("customers", customers);
+    joinedDate: body.joinedDate || new Date(),
+  });
 
   return NextResponse.json(newCustomer, { status: 201 });
 }

@@ -1,28 +1,23 @@
 import { NextResponse, connection } from "next/server";
-import { readData } from "@/lib/db";
+import { getPayment } from "@/lib/repo/payments";
+import { getOrder } from "@/lib/repo/orders";
 import { releaseExpiredPayments } from "@/lib/payments";
 
 export async function GET(request, ctx) {
   await connection();
 
   const { id } = await ctx.params;
-    await releaseExpiredPayments();
+  await releaseExpiredPayments();
 
-  const [payments, orders] = await Promise.all([
-    readData("payments"),
-    readData("orders"),
-  ]);
-
-  const payment = payments.find((p) => p.id === id);
+  const payment = await getPayment(id);
 
   if (!payment) {
-    return NextResponse.json(
-      { error: "PAYMENT_NOT_FOUND" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "PAYMENT_NOT_FOUND" }, { status: 404 });
   }
 
-  const order = orders.find((o) => o.id === payment.orderId);
+  const order = payment.orderId
+    ? await getOrder(String(payment.orderId))
+    : null;
 
   return NextResponse.json({
     id: payment.id,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import { readData, writeData } from "@/lib/db";
+import { createOrder, listOrders } from "@/lib/repo/orders";
 
 async function getAdmin() {
   const cookieStore = await cookies();
@@ -16,7 +16,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const orders = await readData("orders");
+  const orders = await listOrders();
   return NextResponse.json(orders);
 }
 
@@ -40,35 +40,44 @@ export async function POST(request) {
     );
   }
 
-  const orders = await readData("orders");
+  const avatar =
+    customerName
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "CU";
 
-  const avatar = customerName
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() || "CU";
+  try {
+    const newOrder = await createOrder({
+      // checkoutKey unique index hai — admin order ke liye bhi zaroori
+      checkoutKey: "admin_" + crypto.randomUUID(),
+      orderNumber:
+        body.orderNumber || `ORD-${Date.now().toString().slice(-6)}`,
+      date: body.date || new Date(),
+      customer: {
+        name: customerName,
+        email: customerEmail,
+        avatar,
+      },
+      itemsCount: Number(body.itemsCount || 1),
+      itemsSummary: itemsSummary || "Standard Store Item",
+      totalAmount: Number(body.totalAmount || 0),
+      status: body.status || "Processing",
+      paymentMethod: body.paymentMethod || "Credit Card",
+      paymentStatus: body.paymentStatus || "Paid",
+      items: [],
+    });
 
-  const newOrder = {
-    id: crypto.randomUUID(),
-    orderNumber: body.orderNumber || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-    date: body.date || new Date().toISOString(),
-    customer: {
-      name: customerName,
-      email: customerEmail,
-      avatar,
-    },
-    itemsCount: Number(body.itemsCount || 1),
-    itemsSummary: itemsSummary || "Standard Store Item",
-    totalAmount: Number(body.totalAmount || 0),
-    status: body.status || "Processing", // "Processing", "Shipped", "Delivered", "Cancelled"
-    paymentMethod: body.paymentMethod || "Credit Card",
-    paymentStatus: body.paymentStatus || "Paid", // "Paid", "Pending", "Refunded"
-  };
-
-  orders.unshift(newOrder);
-  await writeData("orders", orders);
-
-  return NextResponse.json(newOrder, { status: 201 });
+    return NextResponse.json(newOrder, { status: 201 });
+  } catch (error) {
+    if (error.code === 11000) {
+      return NextResponse.json(
+        { error: "Order number already exists. Please try again." },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
 }

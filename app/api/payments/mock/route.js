@@ -1,5 +1,5 @@
 import { NextResponse, connection } from "next/server";
-import { readData } from "@/lib/db";
+import { findPaymentByAnyId } from "@/lib/repo/payments";
 import { applyPaymentEvent } from "@/lib/payments";
 
 const OUTCOMES = {
@@ -30,10 +30,7 @@ export async function POST(request) {
 
   // Duplicate test: pichla event dobara bhejo
   if (outcome === "duplicate") {
-    const payments = await readData("payments");
-    const payment = payments.find(
-      (p) => p.id === paymentId || p.providerPaymentId === paymentId
-    );
+ const payment = await findPaymentByAnyId(paymentId);
 
     const last = payment?.events?.[payment.events.length - 1];
 
