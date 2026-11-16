@@ -382,7 +382,7 @@ export default function SettingsPage() {
                     className={inputClass}
                   />
                 </Field>            
-                <Field label="Allow backorders">        ← NAYI LINE            
+                <Field label="Allow backorders">                
                 <label className="flex items-center gap-2 text-sm text-[#3f1d2e]">                
                    <input
                   type="checkbox"

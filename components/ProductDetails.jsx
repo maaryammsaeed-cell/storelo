@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,7 +15,7 @@ export default function ProductDetails({
   allowBackorder,  // [1] Store-level permission (true/false)
 }) {
   const router = useRouter();
-  const { addToCart } = useCart();
+  const { addToCart, items } = useCart();
 
   // [2] Saara stock faisla EK hi function se hota hai
   const stockState = getStockState(product, {
@@ -38,7 +38,15 @@ export default function ProductDetails({
   const [quantity, setQuantity] = useState(1);
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState("");
+
+  // Product abhi cart me hai ya nahi — order ke baad cart clear hui to
+  // "Added ✓" / disabled state khud reset ho jayega.
+  const inCart = items.some(
+    (item) => item.id === product?.id || item._id === product?.id
+  );
+  const isAdded = added && inCart;
 
   async function add(goToCart) {
     // [5] Cart me bhejne se PEHLE yahin rok do
@@ -47,6 +55,17 @@ export default function ProductDetails({
       return;
     }
 
+    // Rapid double-click guard: state update se pehle bhi rokta hai
+    if (busyRef.current) return;
+
+    // Agar product abhi cart me hai:
+    // Add to cart → kuch na karo, Buy it now → seedha cart par jao
+    if (isAdded) {
+      if (goToCart) router.push("/cart");
+      return;
+    }
+
+    busyRef.current = true;
     setBusy(true);
     setError("");
 
@@ -60,6 +79,7 @@ export default function ProductDetails({
         err?.message || "Unable to add to cart. Please try again."
       );
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -77,7 +97,7 @@ export default function ProductDetails({
       <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-14">
         {/* ------- IMAGE ------- */}
         <div className="relative aspect-[4/5] overflow-hidden rounded-sm bg-[#f4f1ea]">
-          {product.oldPrice ? (
+          {product.status === "sale" || product.oldPrice ? (
             <span className="absolute left-4 top-4 z-10 rounded-full bg-[#1f2119] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
               Sale
             </span>
@@ -108,7 +128,7 @@ export default function ProductDetails({
             <span className="text-xl text-[#1f2119]">
               {formatPrice(product.price, currency)}
             </span>
-            {product.oldPrice ? (
+            { product.oldPrice ? (
               <span className="text-sm text-[#9a958a] line-through">
                 {formatPrice(product.oldPrice, currency)}
               </span>
@@ -140,7 +160,10 @@ export default function ProductDetails({
                   <button
                     key={option}
                     type="button"
-                    onClick={() => setSize(option)}
+                    onClick={() => {
+                      setSize(option);
+                      setAdded(false);
+                    }}
                     className={`min-w-24 rounded-sm border px-4 py-2 text-sm transition ${size === option
                         ? "border-[#1f2119] bg-[#1f2119] text-white"
                         : "border-[#d8d3c7] text-[#1f2119] hover:border-[#1f2119]"
@@ -158,7 +181,10 @@ export default function ProductDetails({
             <div className="inline-flex items-center border border-[#d8d3c7]">
               <button
                 type="button"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                onClick={() => {
+                  setQuantity((q) => Math.max(1, q - 1));
+                  setAdded(false);
+                }}
                 aria-label="Decrease quantity"
                 className="px-4 py-3 text-[#1f2119] hover:bg-[#f4f1ea]"
               >
@@ -170,9 +196,10 @@ export default function ProductDetails({
               <button
                 type="button"
                 // [9] "+" par maxQuantity se zyada na jaye
-                onClick={() =>
-                  setQuantity((q) => Math.min(maxQuantity, q + 1))
-                }
+                onClick={() => {
+                  setQuantity((q) => Math.min(maxQuantity, q + 1));
+                  setAdded(false);
+                }}
                 aria-label="Increase quantity"
                 className="px-4 py-3 text-[#1f2119] hover:bg-[#f4f1ea]"
               >
@@ -183,7 +210,7 @@ export default function ProductDetails({
             <button
               type="button"
               // [10] Stock/status allow na kare to button disable
-              disabled={busy || !canAddToCart}
+              disabled={busy || isAdded || !canAddToCart}
               onClick={() => add(false)}
               className="flex-1 rounded-sm bg-[#1f2119] px-6 py-3 text-xs uppercase tracking-[0.16em] text-white transition hover:bg-[#3a3d31] disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -192,7 +219,7 @@ export default function ProductDetails({
                 ? "Pre-order"
                 : isBackorder
                   ? "Add to Cart (Backorder)"
-                  : added
+                  : isAdded
                     ? "Added ✓"
                     : "Add to cart"}
             </button>

@@ -10,22 +10,52 @@ import { formatPrice } from "@/lib/format";
 
 // NOTE: Shipping abhi fixed hai.
 // Baad me isay Settings se laana chahiye (hardcode nahi rehna chahiye).
-const SHIPPING = 20;
+const SHIPPING = 0;
 
 export default function CartPage() {
   const router = useRouter();
-  const { items, count, total, changeQuantity, removeFromCart, clearCart } =
+  const { items, count, changeQuantity, removeFromCart, clearCart } =
     useCart();
   const currency = useCurrency();
 
   const [error, setError] = useState("");
+  // Jin items ko customer ne UNCHECK kiya (baaqi sab selected)
+  const [excludedIds, setExcludedIds] = useState([]);
 
-  const shipping = items.length > 0 ? SHIPPING : 0;
-  const grandTotal = total + shipping;
+  const selectedItems = items.filter((item) => !excludedIds.includes(item.id));
 
-  // Koi item aisa hai jo ab add nahi ho sakta?
-  // (out of stock / discontinued / inactive / unavailable)
-  const hasInvalidItem = items.some((item) => item.canAddToCart === false);
+  const selectedCount = selectedItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  const selectedTotal = selectedItems.reduce(
+    (sum, item) => sum + Number(item.price) * item.quantity,
+    0
+  );
+
+  const selectedGrandTotal =
+    selectedTotal + (selectedItems.length > 0 ? SHIPPING : 0);
+
+  const allSelected =
+    items.length > 0 && items.every((item) => !excludedIds.includes(item.id));
+
+  function toggleItem(id) {
+    setExcludedIds((current) =>
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id]
+    );
+  }
+
+  function toggleAll() {
+    setExcludedIds(allSelected ? items.map((item) => item.id) : []);
+  }
+
+  // Sirf selected items check karo — unchk kiya hua invalid item checkout rok na de
+  const hasInvalidItem = selectedItems.some(
+    (item) => item.canAddToCart === false
+  );
 
   // Quantity badalne ka safe wrapper — API error pakarta hai
   async function handleQuantity(id, delta) {
@@ -40,6 +70,7 @@ export default function CartPage() {
   // Item remove karne ka safe wrapper
   async function handleRemove(id) {
     setError("");
+    setExcludedIds((current) => current.filter((value) => value !== id));
     try {
       await removeFromCart(id);
     } catch (err) {
@@ -48,7 +79,24 @@ export default function CartPage() {
   }
 
   function handleClear() {
-    if (window.confirm("Clear your cart?")) clearCart();
+    if (window.confirm("Clear your cart?")) {
+      setExcludedIds([]);
+      clearCart();
+    }
+  }
+
+  function checkoutItem(item) {
+    // Buy-now alag flow hai — selected list clear karo
+    sessionStorage.removeItem("checkoutItems");
+
+    sessionStorage.setItem(
+      "buyNowItem",
+      JSON.stringify({
+        productId: item.id,
+        quantity: item.quantity,
+      })
+    );
+    router.push("/checkout");
   }
 
   return (
@@ -65,7 +113,7 @@ export default function CartPage() {
             </h1>
           </div>
           <p className="text-sm text-[#8b8679]">
-            {count} item{count === 1 ? "" : "s"}
+            {selectedCount} of {count} item{count === 1 ? "" : "s"} selected
           </p>
         </div>
 
@@ -88,14 +136,22 @@ export default function CartPage() {
           <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
             <div>
               {/* ================= DESKTOP: TABLE ================= */}
-              <div className="hidden overflow-hidden rounded-xl border border-[#e7e3da] bg-white md:block">
+              <div className="hidden overflow-x-auto rounded-xl border border-[#e7e3da] bg-white md:block">
                 <table className="w-full text-left">
                   <thead className="bg-[#faf8f3] text-[11px] uppercase tracking-[0.14em] text-[#8b8679]">
                     <tr>
+                      <th className="w-10 px-4 py-3">
+                        <ItemCheckbox
+                          checked={allSelected}
+                          onChange={toggleAll}
+                          label="Select all items"
+                        />
+                      </th>
                       <th className="px-4 py-3">Product</th>
-                      <th className="px-4 py-3">Price</th>
+    
                       <th className="px-4 py-3">Quantity</th>
                       <th className="px-4 py-3">Total</th>
+                      <th className="px-4 py-3">Checkout</th>
                       <th className="px-4 py-3 text-right">Remove</th>
                     </tr>
                   </thead>
@@ -103,6 +159,14 @@ export default function CartPage() {
                   <tbody>
                     {items.map((item) => (
                       <tr key={item.id} className="border-t border-[#e7e3da]">
+                        <td className="px-4 py-4">
+                          <ItemCheckbox
+                            checked={!excludedIds.includes(item.id)}
+                            onChange={() => toggleItem(item.id)}
+                            label={`Select ${item.title}`}
+                          />
+                        </td>
+
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-4">
                             <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-sm bg-[#f4f1ea]">
@@ -140,9 +204,7 @@ export default function CartPage() {
                           </div>
                         </td>
 
-                        <td className="px-4 py-4 text-sm text-[#1f2119]">
-                          {formatPrice(item.price, currency)}
-                        </td>
+                    
 
                         <td className="px-4 py-4">
                           <QuantityStepper
@@ -153,6 +215,17 @@ export default function CartPage() {
 
                         <td className="px-4 py-4 text-sm font-medium text-[#1f2119]">
                           {formatPrice(item.price * item.quantity, currency)}
+                        </td>
+
+                        <td className="px-4 py-4">
+                          <button
+                            type="button"
+                            onClick={() => checkoutItem(item)}
+                            disabled={item.canAddToCart === false}
+                            className="rounded-sm border border-[#1f2119] px-3 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[#1f2119] transition hover:bg-[#1f2119] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Checkout
+                          </button>
                         </td>
 
                         <td className="px-4 py-4 text-right">
@@ -171,6 +244,21 @@ export default function CartPage() {
                 </table>
               </div>
 
+              {/* ================= MOBILE: SELECT ALL ================= */}
+              <div className="mb-3 flex items-center justify-between rounded-xl border border-[#e7e3da] bg-white px-4 py-3 md:hidden">
+                <label className="flex items-center gap-2 text-xs text-[#1f2119]">
+                  <ItemCheckbox
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    label="Select all items"
+                  />
+                  Select all
+                </label>
+                <span className="text-[11px] text-[#8b8679]">
+                  {selectedCount} of {count} selected
+                </span>
+              </div>
+
               {/* ================= MOBILE: CARDS ================= */}
               <ul className="space-y-3 md:hidden">
                 {items.map((item) => (
@@ -178,7 +266,15 @@ export default function CartPage() {
                     key={item.id}
                     className="rounded-xl border border-[#e7e3da] bg-white p-4"
                   >
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
+                      <div className="pt-1">
+                        <ItemCheckbox
+                          checked={!excludedIds.includes(item.id)}
+                          onChange={() => toggleItem(item.id)}
+                          label={`Select ${item.title}`}
+                        />
+                      </div>
+
                       <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-sm bg-[#f4f1ea]">
                         <Image
                           src={item.image || "/images/products/tshirt.jpg"}
@@ -226,11 +322,16 @@ export default function CartPage() {
                             item={item}
                             changeQuantity={handleQuantity}
                           />
+                          <button
+                            type="button"
+                            onClick={() => checkoutItem(item)}
+                            disabled={item.canAddToCart === false}
+                            className="mt-3 w-full rounded-sm border border-[#1f2119] px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-[#1f2119] transition hover:bg-[#1f2119] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Checkout this item
+                          </button>
                           <p className="text-sm font-medium text-[#1f2119]">
-                            {formatPrice(
-                              item.price * item.quantity,
-                              currency
-                            )}
+                            {formatPrice(item.price * item.quantity, currency)}
                           </p>
                         </div>
                       </div>
@@ -254,25 +355,34 @@ export default function CartPage() {
               <h2 className="font-playfair text-2xl text-[#1f2119]">
                 Cart Summary
               </h2>
+              <p className="mt-1 text-[11px] text-[#8b8679]">
+                Sirf tick kiye hue items checkout honge.
+              </p>
 
               <dl className="mt-5 space-y-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <dt className="text-[#6b675e]">Subtotal ({count} items)</dt>
+                  <dt className="text-[#6b675e]">
+                    Subtotal ({selectedCount} items)
+                  </dt>
                   <dd className="text-[#1f2119]">
-                    {formatPrice(total, currency)}
+                    {formatPrice(selectedTotal, currency)}
                   </dd>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <dt className="text-[#6b675e]">Shipping</dt>
                   <dd className="text-[#1f2119]">
-                    {formatPrice(shipping, currency)}
+                    {selectedItems.length === 0
+                      ? "—"
+                      : SHIPPING === 0
+                        ? "Free"
+                        : formatPrice(SHIPPING, currency)}
                   </dd>
                 </div>
 
                 <div className="flex items-center justify-between border-t border-[#e7e3da] pt-3 text-base font-medium text-[#1f2119]">
                   <dt>Total</dt>
-                  <dd>{formatPrice(grandTotal, currency)}</dd>
+                  <dd>{formatPrice(selectedGrandTotal, currency)}</dd>
                 </div>
               </dl>
 
@@ -283,18 +393,36 @@ export default function CartPage() {
                 </p>
               ) : null}
 
-              {/* Agar koi item invalid hai to checkout se pehle batao */}
+              {/* Agar koi selected item invalid hai to checkout se pehle batao */}
               {hasInvalidItem ? (
                 <p className="mt-4 rounded-sm bg-[#fdf2f0] px-3 py-2 text-xs text-[#b3453b]">
-                  Some items are no longer available. Please remove them from
-                  your cart before checkout.
+                  Some selected items are no longer available. Please remove
+                  them from your cart before checkout.
+                </p>
+              ) : null}
+
+              {/* Kuch bhi select nahi */}
+              {selectedItems.length === 0 ? (
+                <p className="mt-4 rounded-sm bg-[#fdf2f0] px-3 py-2 text-xs text-[#b3453b]">
+                  Checkout ke liye kam az kam ek item select karein.
                 </p>
               ) : null}
 
               <button
                 type="button"
-                disabled={hasInvalidItem}
-                onClick={() => router.push("/checkout")}
+                disabled={hasInvalidItem || selectedItems.length === 0}
+                onClick={() => {
+                  if (selectedItems.length === 0) return;
+
+                  sessionStorage.setItem(
+                    "checkoutItems",
+                    JSON.stringify(selectedItems.map((item) => item.id))
+                  );
+                  // Purana buy-now item hatao, warna checkout sirf usi item ka
+                  // summary dikhata reh jata hai.
+                  sessionStorage.removeItem("buyNowItem");
+                  router.push("/checkout");
+                }}
                 className="mt-6 w-full rounded-sm bg-[#1f2119] px-5 py-3 text-xs uppercase tracking-[0.16em] text-white transition hover:bg-[#3a3d31] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Proceed to Checkout
@@ -353,6 +481,18 @@ function QuantityStepper({ item, changeQuantity }) {
         +
       </button>
     </div>
+  );
+}
+
+function ItemCheckbox({ checked, onChange, label }) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      aria-label={label}
+      className="h-4 w-4 shrink-0 cursor-pointer accent-[#b37b95]"
+    />
   );
 }
 

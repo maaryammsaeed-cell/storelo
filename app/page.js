@@ -8,10 +8,14 @@ import ServicesSection from "@/components/ServicesSection";
 import LandingFooter from "@/components/LandingFooter";
 import { readData } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
+import { releaseExpiredReservations } from "@/lib/reserve";
+import LandingTabBar from "@/components/LandingTabBar";
 
 export const instant = false;
 
 async function getProducts() {
+
+  const products = (await readData("products")).filter((p) => !p.deletedAt);
   try {
     const products = await readData("products");
 
@@ -66,13 +70,22 @@ async function ProductsFromDatabase({
 
 export default async function Home() {
   await connection();
+
+  // Expired stock reservations release karo — phir fresh stock padho
+  await releaseExpiredReservations();
+
   const settings = await getSettings();
 
   return (
-    <div className="flex min-h-screen flex-col bg-white font-sans">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#F3EADF] font-sans  pb-24">
+      {/* Hero jaisa soft glow — poore page par */}
+      <div className="pointer-events-none absolute -left-40 top-[38%] h-[520px] w-[520px] rounded-full bg-[#EAD6D9]/40 blur-3xl" />
+      <div className="pointer-events-none absolute -right-40 top-[62%] h-[480px] w-[480px] rounded-full bg-[#E3D0C9]/40 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-40 -left-24 h-[420px] w-[420px] rounded-full bg-[#EAD6D9]/30 blur-3xl" />
+
       <Landingnavbar storeName={settings.storeName} logo={settings.logo} />
 
-      <main className="flex flex-1 flex-col">
+      <main className="relative z-10 flex flex-1 flex-col">
         <Landingherosec hero={settings.hero} />
 
         <Suspense
@@ -92,6 +105,8 @@ export default async function Home() {
         <ServicesSection />
         <LandingFooter footer={settings.footer} />
       </main>
+
+      <LandingTabBar />
     </div>
   );
 }

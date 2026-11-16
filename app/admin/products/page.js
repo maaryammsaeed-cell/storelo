@@ -2,6 +2,8 @@
 
 import { useCurrency } from "@/lib/useCurrency";
 import { formatPrice } from "@/lib/format";
+import { getStockState } from "@/lib/product";
+import { useStoreSettings } from "@/lib/useStoreSettings";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
@@ -28,8 +30,10 @@ function normalizeProduct(item, index) {
       `Premium ${item.category || "apparel"} item with high quality craftsmanship.`,
     category: item.category || "General",
     image: item.image || "/images/products/tshirt.jpg",
+    stock: item.stock ?? null,
+    allowBackorder: item.allowBackorder === true,
     isActive,
-    status: isActive ? "active" : "inactive",
+    status: item.status || "active",
     rating: {
       rate:
         typeof item.rating === "number"
@@ -41,7 +45,8 @@ function normalizeProduct(item, index) {
 }
 
 export default function ProductsPage() {
-  const currency = useCurrency();   // 👈 pehli line
+  const currency = useCurrency();
+  const { allowBackorder } = useStoreSettings();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataSource, setDataSource] = useState("loading"); // "live", "fallback", "loading"
@@ -361,7 +366,9 @@ export default function ProductsPage() {
       ) : viewMode === "grid" ? (
         /* Grid Cards View */
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {currentItems.map((product) => (
+          {currentItems.map((product) => {
+            const stockState = getStockState(product, { allowBackorder });
+            return (
             <article
               key={product.id}
               className="flex flex-col justify-between rounded-2xl border border-pink-100 bg-white p-4 shadow-sm transition hover:shadow-md"
@@ -378,17 +385,20 @@ export default function ProductsPage() {
                       e.currentTarget.src = "/images/products/tshirt.jpg";
                     }}
                   />
+
                   <span className="absolute left-2.5 top-2.5 rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-pink-800">
                     {product.category}
                   </span>
                   <span
                     className={`absolute right-2.5 top-2.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-                      product.isActive
+                      stockState.state === "backorder"
+                        ? "bg-amber-100 text-amber-800"
+                        : stockState.canAddToCart
                         ? "bg-emerald-100 text-emerald-800"
                         : "bg-gray-100 text-gray-700"
                     }`}
                   >
-                    {product.isActive ? "Active" : "Inactive"}
+                    {stockState.label}
                   </span>
                 </div>
 
@@ -417,7 +427,8 @@ export default function ProductsPage() {
                 </span>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       ) : (
         /* Table View */
@@ -434,7 +445,9 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {currentItems.map((product) => (
+                {currentItems.map((product) => {
+                  const stockState = getStockState(product, { allowBackorder });
+                  return (
                   <tr
                     key={product.id}
                     className="border-b border-pink-100 odd:bg-pink-50/30 hover:bg-pink-50/70"
@@ -460,17 +473,23 @@ export default function ProductsPage() {
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          product.isActive
+                          stockState.state === "backorder"
+                            ? "bg-amber-50 text-amber-700"
+                            : stockState.canAddToCart
                             ? "bg-emerald-50 text-emerald-700"
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${
-                            product.isActive ? "bg-emerald-500" : "bg-gray-400"
+                            stockState.state === "backorder"
+                              ? "bg-amber-500"
+                              : stockState.canAddToCart
+                              ? "bg-emerald-500"
+                              : "bg-gray-400"
                           }`}
                         />
-                        {product.isActive ? "Active" : "Inactive"}
+                        {stockState.label}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-semibold text-[#831843]">
@@ -483,7 +502,8 @@ export default function ProductsPage() {
                       </span>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

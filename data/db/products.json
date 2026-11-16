@@ -5,15 +5,17 @@
     "price": 60,
     "category": "Women",
     "image": "/images/products/tote-bag.jpg",
-    "stock": 30,
-    "status": "active",
+    "stock": 12,
+    "status": "discontinued",
     "sizes": [
       "Small",
       "Medium",
       "Large",
       "Extra Large"
     ],
-    "description": "Stitched 3-Piece\nFabric: Premium Cotton\nColor: Cream\nBreathable | For Summers\n\nDisclaimer: Colors may slightly vary due to screen settings."
+    "description": "Stitched 3-Piece\nFabric: Premium Cotton\nColor: Cream\nBreathable | For Summers\n\nDisclaimer: Colors may slightly vary due to screen settings.",
+    "allowBackorder": false,
+    "preorderReleaseDate": null
   },
   {
     "id": "f2cec0d1-e476-4b2f-b66c-37012b487e34",
@@ -21,8 +23,11 @@
     "price": 200,
     "category": "Women",
     "image": "/uploads/product-1793930327875-e8b92v.webp",
-    "stock": 10,
-    "status": "active"
+    "stock": 0,
+    "status": "active",
+    "allowBackorder": true,
+    "preorderReleaseDate": null,
+    "description": ""
   },
   {
     "id": "5e945fee-06e9-4e99-8f8b-089e0bb781bc",
@@ -30,8 +35,11 @@
     "price": 200,
     "category": "men",
     "image": "/uploads/product-1793930470977-yhnmi4.webp",
-    "stock": 8,
-    "status": "active"
+    "stock": 24,
+    "status": "sale",
+    "allowBackorder": false,
+    "preorderReleaseDate": "2026-01-02",
+    "description": ""
   },
   {
     "id": "e252c279-55b7-411d-8ebc-d8d327dfcdf1",
@@ -48,8 +56,11 @@
     "price": 200,
     "category": "Women",
     "image": "/uploads/product-1793944035948-i80u4b.jpg",
-    "stock": 10,
-    "status": "active"
+    "stock": 6,
+    "status": "active",
+    "allowBackorder": false,
+    "preorderReleaseDate": null,
+    "description": ""
   },
   {
     "id": "ed5a2a2e-9ef9-4017-8300-6db82cd03211",
@@ -57,8 +68,8 @@
     "price": 500,
     "category": "Women",
     "image": "/uploads/product-1793944109310-jxiytg.jfif",
-    "stock": 3,
-    "status": "discontinued",
+    "stock": 0,
+    "status": "active",
     "allowBackorder": false,
     "preorderReleaseDate": null,
     "description": "Fragrance Type: Eau de Parfum\n\nScent: Floral, Woody & Musky\n\nSuitable For: Men & Women\n\nOccasion: Daily Wear & Special Events\n\nLong-Lasting Fragrance\n\nElegant Glass Bottle"
@@ -69,8 +80,11 @@
     "price": 86,
     "category": "men",
     "image": "/uploads/product-1793944250615-ufc9gf.jpg",
-    "stock": 6,
-    "status": "active"
+    "stock": 4,
+    "status": "sale",
+    "allowBackorder": false,
+    "preorderReleaseDate": null,
+    "description": ""
   },
   {
     "id": "279c2bf1-bc5a-438c-9f84-a7113980aded",
@@ -78,7 +92,7 @@
     "price": 86,
     "category": "men",
     "image": "/uploads/product-1793944367131-q0ga82.webp",
-    "stock": 6,
+    "stock": 5,
     "status": "active"
   },
   {
@@ -106,7 +120,10 @@
     "category": "Women",
     "image": "/uploads/product-1793944514175-2mrjk1.jpg",
     "stock": 9,
-    "status": "active"
+    "status": "inactive",
+    "allowBackorder": false,
+    "preorderReleaseDate": null,
+    "description": ""
   },
   {
     "id": "14de043a-1758-44d5-ae8c-0d7599b59820",
@@ -115,7 +132,8 @@
     "category": "Women",
     "image": "/uploads/product-1793944876866-jiz2h2.jpg",
     "stock": 0,
-    "status": "inactive"
+    "status": "inactive",
+    "deletedAt": "2026-11-08T22:59:35.235Z"
   },
   {
     "id": "31d1d88d-953b-4fe9-83f4-6ac920161e3d",
@@ -123,7 +141,7 @@
     "price": 676,
     "category": "men",
     "image": "/uploads/product-1793945085238-aime09.jpg",
-    "stock": 6,
+    "stock": 3,
     "status": "active"
   },
   {
@@ -132,7 +150,7 @@
     "price": 550,
     "category": "Women",
     "image": "/uploads/product-1793945277450-d5g66d.jpg",
-    "stock": 3,
+    "stock": 1,
     "status": "active"
   },
   {
@@ -141,7 +159,7 @@
     "price": 200,
     "category": "men",
     "image": "/uploads/product-1793945780843-oscm3r.jpg",
-    "stock": 5,
+    "stock": 4,
     "status": "active"
   },
   {
@@ -151,6 +169,55 @@
     "category": "men",
     "image": "/uploads/product-1793946049982-y0s1ps.jpg",
     "stock": 0,
-    "status": "inactive"
+    "status": "inactive",
+    "deletedAt": "2026-11-08T22:57:35.757Z"
+  },
+  {
+    "id": "a3aed4a4-ab87-465a-9423-f172c385efda",
+    "title": "laure",
+    "price": 800,
+    "category": "Women",
+    "image": "/uploads/product-1794283568784-gh98c1.jpg",
+    "stock": 17,
+    "status": "active",
+    "description": "Elegant Laure wristwatch featuring a premium design, refined dial, durable strap, and sophisticated detailing. A perfect blend of style and functionality.\n- Brand: Laure\n- Category: Watches\n- Gender: Women\n- Style: Luxury / Fashion\n- Material: Premium finish\n- Occasion: Casual & Formal\n- Movement: Quartz",
+    "allowBackorder": false,
+    "preorderReleaseDate": null
+  },
+  {
+    "id": "9ff870c6-37be-4d83-8a4b-45563eaf29c2",
+    "title": "YSL MAKEUP BOX",
+    "price": 800,
+    "category": "Women",
+    "image": "/uploads/product-1794283658997-lj8a10.jpg",
+    "stock": 18,
+    "status": "active",
+    "description": "Luxury YSL makeup box featuring an elegant design with premium packaging. Perfect for organizing and storing makeup essentials while adding a sophisticated touch to your beauty collection.\n- Brand: Yves Saint Laurent (YSL)\n- Category: Makeup Accessories\n- Color: Black & Gold\n- Material: Premium Quality\n- Style: Luxury\n- Usage: Makeup Storage\n- Suitable For: Women",
+    "allowBackorder": false,
+    "preorderReleaseDate": null
+  },
+  {
+    "id": "bb7ff1c3-db5c-44b9-ab4f-02d308b9c1f2",
+    "title": "BELLA VIITA",
+    "price": 900,
+    "category": "men",
+    "image": "/uploads/product-1794283796787-fsroia.jpg",
+    "stock": 8,
+    "status": "active",
+    "description": "A premium fragrance featuring an elegant scent with a captivating blend of floral, fruity, and warm notes. Perfect for everyday wear and special occasions.\n- Brand: Bella Vita\n- Category: Perfume\n- Fragrance Type: Eau de Parfum\n- Gender: Unisex\n- Style: Luxury\n- Occasion: Casual & Formal\n- Size: 100ml",
+    "allowBackorder": false,
+    "preorderReleaseDate": null
+  },
+  {
+    "id": "38b0b996-4622-4429-9207-25bda33876b3",
+    "title": "Apple Accessories",
+    "price": 900,
+    "category": "men",
+    "image": "/uploads/product-1794284054096-idethl.jpg",
+    "stock": 30,
+    "status": "active",
+    "description": "Premium Apple phone accessories designed to enhance your iPhone experience with quality, convenience, and modern functionality.\n- Brand: Apple\n- Category: Mobile Accessories\n- Products: Chargers, AirPods, Cases, Cables & MagSafe Accessories\n- Compatibility: iPhone\n- Quality: Premium\n- Style: Modern & Minimalist\n- Usage: Everyday Use",
+    "allowBackorder": false,
+    "preorderReleaseDate": null
   }
 ]

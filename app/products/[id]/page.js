@@ -10,7 +10,7 @@ export default async function ProductPage({ params }) {
 
   let products;
   try {
-    products = await readData("products");
+    products = (await readData("products")).filter((p) => !p.deletedAt);
   } catch {
     return (
       <p className="px-5 py-16 text-center text-sm text-[#b3453b]">

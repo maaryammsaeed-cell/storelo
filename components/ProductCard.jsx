@@ -36,14 +36,14 @@ export default function ProductCard({
         href={href}
         className="relative block aspect-[3/4] overflow-hidden rounded-sm bg-[#f4f1ea]"
       >
-        {product.oldPrice ? (
-          <span className="absolute left-3 top-3 z-10 rounded-full bg-[#1f2119] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white">
+        {product.status === "sale"  ||  product.oldPrice ? (
+          <span className="absolute left-3 top-3 z-10 rounded-full bg-[#2C2523] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-white">
             Sale
           </span>
         ) : null}
 
         <span
-          className={`absolute right-3 top-3 z-10 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-white ${badgeClass}`}
+          className={`absolute right-3 top-3 z-10 rounded-full px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white ${badgeClass}`}
         >
           {stockState.label}
         </span>
@@ -57,19 +57,19 @@ export default function ProductCard({
         />
       </Link>
 
-      <div className="mt-4 space-y-2">
-        <h3 className="text-sm text-[#1f2119]">
-          <Link href={href} className="transition hover:text-[#8b8679]">
+      <div className="mt-4 space-y-1.5">
+        <h3 className="text-[13px] font-medium leading-snug tracking-tight text-[#2C2523] sm:text-sm">
+          <Link href={href} className="transition hover:text-[#A86B74]">
             {product.title}
           </Link>
         </h3>
 
-        <p className="flex items-center gap-2 text-sm">
-          <span className="font-medium text-[#1f2119]">
+        <p className="flex items-baseline gap-2">
+          <span className="text-sm font-semibold tracking-tight text-[#2C2523]">
             {formatPrice(product.price, currency)}
           </span>
           {product.oldPrice ? (
-            <span className="text-[#9a958a] line-through">
+            <span className="text-xs text-[#A89F94] line-through">
               {formatPrice(product.oldPrice, currency)}
             </span>
           ) : null}
@@ -77,7 +77,7 @@ export default function ProductCard({
 
         {stockState.state !== "available" ? (
           <p
-            className={`text-xs ${
+            className={`text-[11px] leading-5 ${
               stockState.canAddToCart ? "text-[#b7791f]" : "text-[#b3453b]"
             }`}
           >

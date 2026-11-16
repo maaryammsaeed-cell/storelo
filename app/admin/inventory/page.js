@@ -2,58 +2,79 @@
 
 import { formatPrice, formatPriceShort } from "@/lib/format";
 import { useCurrency } from "@/lib/useCurrency";
-
+import { getStockState } from "@/lib/product";
 import { useStoreSettings } from "@/lib/useStoreSettings";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 const ITEMS_PER_PAGE = 8;
-function getStockStatus(stock, lowStockLimit) {
-  const missing = stock === null || stock === undefined || stock === "";
-  const value = missing ? null : Number(stock);
 
-  if (missing || !Number.isFinite(value)) {
-    return {
-      label: "Unavailable",
-      badge: "bg-slate-100 text-slate-700",
-      dot: "bg-slate-400",
-      bar: "bg-slate-300",
-      text: "text-slate-600",
-    };
-  }
+const STATUS_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "available", label: "In Stock" },
+  { value: "low_stock", label: "Low Stock" },
+  { value: "backorder", label: "Backorder" },
+  { value: "out_of_stock", label: "Out of Stock" },
+];
 
-  if (value <= 0) {
-    return {
-      label: "Out of Stock",
-      badge: "bg-rose-100 text-rose-700",
-      dot: "bg-rose-500",
-      bar: "bg-rose-400",
-      text: "text-rose-600",
-    };
-  }
-
-  if (value <= lowStockLimit) {
-    return {
-      label: "Low Stock",
-      badge: "bg-amber-100 text-amber-700",
-      dot: "bg-amber-500",
-      bar: "bg-amber-400",
-      text: "text-amber-600",
-    };
-  }
-
-  return {
-    label: "In Stock",
+const STATUS_STYLES = {
+  available: {
     badge: "bg-emerald-100 text-emerald-700",
     dot: "bg-emerald-500",
     bar: "bg-emerald-400",
     text: "text-emerald-600",
-  };
-}
+  },
+  low_stock: {
+    badge: "bg-amber-100 text-amber-700",
+    dot: "bg-amber-500",
+    bar: "bg-amber-400",
+    text: "text-amber-600",
+  },
+  backorder: {
+    badge: "bg-amber-100 text-amber-700",
+    dot: "bg-amber-500",
+    bar: "bg-amber-400",
+    text: "text-amber-600",
+  },
+  out_of_stock: {
+    badge: "bg-rose-100 text-rose-700",
+    dot: "bg-rose-500",
+    bar: "bg-rose-400",
+    text: "text-rose-600",
+  },
+  discontinued: {
+    badge: "bg-stone-200 text-stone-700",
+    dot: "bg-stone-500",
+    bar: "bg-stone-400",
+    text: "text-stone-700",
+  },
+  temporarily_unavailable: {
+    badge: "bg-gray-100 text-gray-600",
+    dot: "bg-gray-400",
+    bar: "bg-gray-300",
+    text: "text-gray-600",
+  },
+  preorder: {
+    badge: "bg-sky-100 text-sky-700",
+    dot: "bg-sky-500",
+    bar: "bg-sky-400",
+    text: "text-sky-700",
+  },
+  unavailable: {
+    badge: "bg-slate-100 text-slate-700",
+    dot: "bg-slate-400",
+    bar: "bg-slate-300",
+    text: "text-slate-600",
+  },
+};
 
 export default function InventoryPage() {
   const currency = useCurrency();
-  const { lowStockLimit } = useStoreSettings();
+  const { lowStockLimit, allowBackorder } = useStoreSettings();
+  const stockOptions = useMemo(
+    () => ({ lowStockLimit, allowBackorder }),
+    [lowStockLimit, allowBackorder]
+  );
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -109,31 +130,24 @@ export default function InventoryPage() {
   }
 
   const summary = useMemo(() => {
-    const total = products.length;
-
-    const outOfStock = products.filter(
-      (product) =>
-        product.stock !== null &&
-        product.stock !== undefined &&
-        Number(product.stock) <= 0
-    ).length;
-
-    const lowStock = products.filter((product) => {
-      const stock = product.stock;
-      return (
-        stock !== null &&
-        stock !== undefined &&
-        Number(stock) > 0 &&
-        Number(stock) <= lowStockLimit
-      );
-    }).length;
-
-    // Stock info hi available nahi (null / undefined) wale products
-    const unavailable = products.filter(
-      (product) => product.stock === null || product.stock === undefined
-    ).length;
-
-    const inStock = total - outOfStock - lowStock - unavailable;
+    const counts = products.reduce(
+      (result, product) => {
+        const { state } = getStockState(product, stockOptions);
+        if (state === "available") result.inStock += 1;
+        if (state === "low_stock") result.lowStock += 1;
+        if (state === "backorder") result.backorder += 1;
+        if (state === "out_of_stock") result.outOfStock += 1;
+        if (state === "unavailable") result.unavailable += 1;
+        return result;
+      },
+      {
+        inStock: 0,
+        lowStock: 0,
+        backorder: 0,
+        outOfStock: 0,
+        unavailable: 0,
+      }
+    );
 
     const totalUnits = products.reduce(
       (sum, product) => sum + Number(product.stock || 0),
@@ -147,15 +161,12 @@ export default function InventoryPage() {
     );
 
     return {
-      total,
-      inStock,
-      lowStock,
-      outOfStock,
-      unavailable,
+      total: products.length,
+      ...counts,
       totalUnits,
       inventoryValue,
     };
-  }, [products, lowStockLimit]);
+  }, [products, stockOptions]);
 
   const healthPercent = summary.total
     ? Math.round((summary.inStock / summary.total) * 100)
@@ -209,17 +220,17 @@ export default function InventoryPage() {
         (product.title || "").toLowerCase().includes(query) ||
         (product.category || "").toLowerCase().includes(query);
 
-      const status = getStockStatus(product.stock, lowStockLimit).label;
+      const { state } = getStockState(product, stockOptions);
       const matchesStatus =
-        selectedStatus === "all" || status === selectedStatus;
+        selectedStatus === "all" || state === selectedStatus;
 
       return matchesSearch && matchesStatus;
     });
-  }, [products, searchQuery, selectedStatus, lowStockLimit]);
+  }, [products, searchQuery, selectedStatus, stockOptions]);
 
   const attentionList = useMemo(() => {
     return [...products]
-         .filter(
+      .filter(
         (product) =>
           product.stock !== null &&
           product.stock !== undefined &&
@@ -251,9 +262,10 @@ export default function InventoryPage() {
 
   const filterCounts = {
     all: summary.total,
-    "In Stock": summary.inStock,
-    "Low Stock": summary.lowStock,
-    "Out of Stock": summary.outOfStock,
+    available: summary.inStock,
+    low_stock: summary.lowStock,
+    backorder: summary.backorder,
+    out_of_stock: summary.outOfStock,
   };
 
   const totalPages =
@@ -356,6 +368,11 @@ export default function InventoryPage() {
                 label="Out of Stock"
                 value={summary.outOfStock}
               />
+              <LegendRow
+                color="bg-amber-400"
+                label="Backorder"
+                value={summary.backorder}
+              />
             </ul>
           </div>
         </div>
@@ -408,15 +425,15 @@ export default function InventoryPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {["all", "In Stock", "Low Stock", "Out of Stock"].map((filter) => {
-            const active = selectedStatus === filter;
+          {STATUS_FILTERS.map((filter) => {
+            const active = selectedStatus === filter.value;
 
             return (
               <button
-                key={filter}
+                key={filter.value}
                 type="button"
                 onClick={() => {
-                  setSelectedStatus(filter);
+                  setSelectedStatus(filter.value);
                   setCurrentPage(1);
                 }}
                 className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${active
@@ -424,12 +441,12 @@ export default function InventoryPage() {
                     : "bg-pink-50 text-pink-700 hover:bg-pink-100"
                   }`}
               >
-                {filter === "all" ? "All" : filter}
+                {filter.label}
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white/20" : "bg-white text-[#9d6b82]"
                     }`}
                 >
-                  {filterCounts[filter]}
+                  {filterCounts[filter.value]}
                 </span>
               </button>
             );
@@ -503,11 +520,11 @@ export default function InventoryPage() {
 
                     <tbody>
                       {currentItems.map((product) => {
-                        const stock = Number(product.stock);
-                        const status = getStockStatus(
-                          product.stock,
-                          lowStockLimit
-                        );
+                        const stockState = getStockState(product, stockOptions);
+                        const statusStyle =
+                          STATUS_STYLES[stockState.state] ||
+                          STATUS_STYLES.unavailable;
+                        const stock = stockState.stock;
                         const barWidth = Number.isFinite(stock)
                           ? Math.min(Math.max(stock, 0), 100)
                           : 0;
@@ -558,13 +575,13 @@ export default function InventoryPage() {
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2.5">
                                 <span
-                                  className={`w-8 text-right font-semibold ${status.text}`}
+                                  className={`w-8 text-right font-semibold ${statusStyle.text}`}
                                 >
-                                  {stock}
+                                  {stock ?? "—"}
                                 </span>
                                 <div className="h-1.5 w-16 overflow-hidden rounded-full bg-pink-50">
                                   <div
-                                    className={`h-full rounded-full ${status.bar}`}
+                                    className={`h-full rounded-full ${statusStyle.bar}`}
                                     style={{ width: `${barWidth}%` }}
                                   />
                                 </div>
@@ -573,12 +590,12 @@ export default function InventoryPage() {
 
                             <td className="px-4 py-3">
                               <span
-                                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium ${status.badge}`}
+                                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium ${statusStyle.badge}`}
                               >
                                 <span
-                                  className={`h-1.5 w-1.5 rounded-full ${status.dot}`}
+                                  className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`}
                                 />
-                                {status.label}
+                                {stockState.label}
                               </span>
                             </td>
                           </tr>
@@ -641,7 +658,7 @@ export default function InventoryPage() {
                   Needs Attention
                 </h2>
                 <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
-                  {summary.lowStock + summary.outOfStock}
+                  {summary.lowStock + summary.outOfStock + summary.backorder}
                 </span>
               </div>
               <p className="mt-1 text-xs text-[#9d6b82]">
@@ -655,11 +672,11 @@ export default function InventoryPage() {
               ) : (
                 <ul className="mt-4 space-y-3">
                   {attentionList.map((product) => {
-                    const stock = Number(product.stock);
-                    const status = getStockStatus(
-                      product.stock,
-                      lowStockLimit
-                    );
+                    const stockState = getStockState(product, stockOptions);
+                    const statusStyle =
+                      STATUS_STYLES[stockState.state] ||
+                      STATUS_STYLES.unavailable;
+                    const stock = stockState.stock;
 
                     return (
                       <li
@@ -685,7 +702,7 @@ export default function InventoryPage() {
                           </p>
                           <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-pink-100">
                             <div
-                              className={`h-full rounded-full ${status.bar}`}
+                              className={`h-full rounded-full ${statusStyle.bar}`}
                               style={{
                                 width: `${Math.min(Math.max(stock, 0), 10) * 10}%`,
                               }}
@@ -693,9 +710,9 @@ export default function InventoryPage() {
                           </div>
                         </div>
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.badge}`}
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusStyle.badge}`}
                         >
-                          {stock}
+                          {stockState.label}
                         </span>
                       </li>
                     );

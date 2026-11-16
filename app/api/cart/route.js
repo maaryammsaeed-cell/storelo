@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { readData, writeData } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { getStockState } from "@/lib/product";
+import { releaseExpiredReservations } from "@/lib/reserve";
 
 // Guest customer ki pehchan — httpOnly cookie
 const COOKIE_NAME = "cart_id";
@@ -29,7 +30,10 @@ function setCartCookie(response, cartId) {
 
 // Cart ke items me products.json se asli data + stock state milao
 async function hydrate(cart, products, settings) {
-  const list = products ?? (await readData("products"));
+  const list = (products ?? (await readData("products"))).filter(
+  (product) => !product.deletedAt
+);
+
   const byId = new Map(list.map((product) => [product.id, product]));
 
   const items = cart.items
@@ -69,6 +73,8 @@ async function hydrate(cart, products, settings) {
 // =====================================================
 export async function GET() {
   await connection();
+
+  await releaseExpiredReservations();
 
   const settings = await getSettings();
 
@@ -120,8 +126,9 @@ export async function POST(request) {
 
   // 2. Product DB me hai ya nahi
   const products = await readData("products");
-  const product = products.find((entry) => entry.id === productId);
-
+  const product = products.find(
+  (entry) => entry.id === productId && !entry.deletedAt
+);
   if (!product) {
     return NextResponse.json(
       { error: "PRODUCT_NOT_FOUND" },
@@ -215,7 +222,9 @@ export async function PATCH(request) {
 
   const settings = await getSettings();
   const products = await readData("products");
-  const product = products.find((entry) => entry.id === productId);
+const product = products.find(
+  (entry) => entry.id === productId && !entry.deletedAt
+);
 
   if (!product) {
     return NextResponse.json(

@@ -56,7 +56,7 @@ export async function PATCH(request, ctx) {
   }
 
   // ---- Status validation ----
-  const allowedStatuses = ["active", "inactive", "discontinued", "preorder"];
+  const allowedStatuses = ["active", "inactive", "discontinued", "preorder", "sale"];
   const status =
     body.status !== undefined
       ? allowedStatuses.includes(body.status)
@@ -100,14 +100,54 @@ export async function DELETE(request, ctx) {
 
   const { id } = await ctx.params;
 
-  const products = await readData("products");
-  const remaining = products.filter((item) => item.id !== id);
+  const [products, orders] = await Promise.all([
+    readData("products"),
+    readData("orders"),
+  ]);
 
-  if (remaining.length === products.length) {
+  const index = products.findIndex((item) => item.id === id);
+
+  if (index === -1) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
 
-  await writeData("products", remaining);
+  const product = products[index];
+
+  // CHECK 1: kya ye product kisi order me hai?
+  const usedInOrders = orders.filter((order) =>
+    (order.items || []).some((item) => item.productId === id)
+  );
+
+  if (usedInOrders.length > 0) {
+    return NextResponse.json(
+      {
+        error: "PRODUCT_IN_USE",
+        message: `Cannot delete product: It is associated with ${usedInOrders.length} existing order${usedInOrders.length === 1 ? "" : "s"}. Please mark the product as inactive or discontinued instead.`,
+      },
+      { status: 409 }
+    );
+  }
+
+  // CHECK 2: kya stock abhi bhi bacha hai?
+  const stock = Number(product.stock);
+
+  if (Number.isFinite(stock) && stock > 0) {
+    return NextResponse.json(
+      {
+        error: "STOCK_REMAINING",
+        message: `Cannot delete product: There are still ${stock} unit${stock === 1 ? "" : "s"} in stock. Please adjust inventory to 0 before deleting.`,
+      },
+      { status: 409 }
+    );
+  }
+
+  // DELETE: asal me delete nahi, sirf deletedAt laga rahe hain
+  products[index] = {
+    ...product,
+    deletedAt: new Date().toISOString(),
+  };
+
+  await writeData("products", products);
 
   return NextResponse.json({ ok: true });
 }

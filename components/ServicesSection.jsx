@@ -51,7 +51,7 @@ function ServiceCard({ title, description }) {
 
 export default function ServicesSection() {
   return (
-    <section id="services" className="bg-white px-5 pb-24 pt-4 sm:px-8 lg:pt-6">
+    <section id="services" className="bg-transparent px-5 pb-24 pt-4 sm:px-8 lg:pt-6">
       <div className="mx-auto max-w-7xl">
         {/* Heading */}
         <div className="text-center">
@@ -79,7 +79,7 @@ export default function ServicesSection() {
         </div>
 
         {/* Neechy wali line — 4 services, ek hi light box me */}
-        <div className="mt-4 grid overflow-hidden rounded-md bg-[#f7f4ee] sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-[#e7e3da]">
+        <div className="mt-4 grid overflow-hidden rounded-md bg-[#EADDD2] sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-[#e7e3da]">
           {bottomServices.map((service) => (
             <article
               key={service.title}

@@ -2,26 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { getStockState } from "@/lib/product";
 import { useStoreSettings } from "@/lib/useStoreSettings";
 
-function getStatus(stock, lowStockLimit) {
-  const missing = stock === null || stock === undefined || stock === "";
-  const value = missing ? null : Number(stock);
+const STATUS_CLASSES = {
+  available: "bg-emerald-50 text-emerald-700",
+  low_stock: "bg-amber-50 text-amber-700",
+  backorder: "bg-amber-50 text-amber-700",
+  out_of_stock: "bg-rose-50 text-rose-700",
+  discontinued: "bg-stone-200 text-stone-700",
+  temporarily_unavailable: "bg-gray-100 text-gray-600",
+  preorder: "bg-sky-50 text-sky-700",
+  unavailable: "bg-slate-50 text-slate-600",
+};
 
-  if (missing || !Number.isFinite(value)) {
-    return { label: "Unavailable", className: "bg-slate-50 text-slate-600" };
-  }
-  if (value <= 0) {
-    return { label: "Out of Stock", className: "bg-rose-50 text-rose-700" };
-  }
-  if (value <= lowStockLimit) {
-    return { label: "Low Stock", className: "bg-amber-50 text-amber-700" };
-  }
-  return { label: "In Stock", className: "bg-emerald-50 text-emerald-700" };
+function getStatusClass(state) {
+  return STATUS_CLASSES[state] || STATUS_CLASSES.unavailable;
 }
 
 export default function ManageInventoryPage() {
-  const { lowStockLimit } = useStoreSettings();
+  const { lowStockLimit, allowBackorder } = useStoreSettings();
 
   const [items, setItems] = useState([]);
   const [drafts, setDrafts] = useState({});
@@ -48,7 +48,9 @@ export default function ManageInventoryPage() {
       if (!res.ok) throw new Error("Load failed");
 
       const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
+      const list = (Array.isArray(data) ? data : []).filter(
+        (product) => !product.deletedAt
+      );
 
       setItems(list);
 
@@ -137,16 +139,23 @@ export default function ManageInventoryPage() {
     });
   }, [items, drafts, search, lowOnly, lowStockLimit]);
 
-  const lowCount = items.filter((item) => {
-    if (item.stock === null || item.stock === undefined) return false;
-    const stock = Number(item.stock);
-    return stock > 0 && stock <= lowStockLimit;
-  }).length;
+  const lowCount = items.filter(
+    (item) =>
+      getStockState(item, { lowStockLimit, allowBackorder }).state ===
+      "low_stock"
+  ).length;
 
-  const outCount = items.filter((item) => {
-    if (item.stock === null || item.stock === undefined) return false;
-    return Number(item.stock) <= 0;
-  }).length;
+  const backorderCount = items.filter(
+    (item) =>
+      getStockState(item, { lowStockLimit, allowBackorder }).state ===
+      "backorder"
+  ).length;
+
+  const outCount = items.filter(
+    (item) =>
+      getStockState(item, { lowStockLimit, allowBackorder }).state ===
+      "out_of_stock"
+  ).length;
 
   return (
     <section className="min-w-0 flex-1">
@@ -187,6 +196,9 @@ export default function ManageInventoryPage() {
         </span>
         <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-100">
           {lowCount} low stock
+        </span>
+        <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700 ring-1 ring-amber-100">
+          {backorderCount} backorder
         </span>
         <span className="rounded-full bg-rose-50 px-3 py-1.5 text-rose-700 ring-1 ring-rose-100">
           {outCount} out of stock
@@ -256,7 +268,10 @@ export default function ManageInventoryPage() {
               <tbody>
                 {filteredItems.map((item) => {
                   const stock = Number(drafts[item.id] ?? item.stock ?? 0);
-                  const status = getStatus(stock, lowStockLimit);
+                  const stockState = getStockState(
+                    { ...item, stock },
+                    { lowStockLimit, allowBackorder }
+                  );
                   const changed = stock !== Number(item.stock ?? 0);
 
                   return (
@@ -316,9 +331,9 @@ export default function ManageInventoryPage() {
 
                       <td className="px-4 py-3">
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.className}`}
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusClass(stockState.state)}`}
                         >
-                          {status.label}
+                          {stockState.label}
                         </span>
                       </td>
 

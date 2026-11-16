@@ -9,7 +9,7 @@ export default function LandingFooter({ footer = {} }) {
   } = footer;
 
   return (
-    <section className="bg-[#f7f4ee] px-5 py-20 text-center sm:px-8">
+    <section className="bg-transparent px-5 py-20 text-center sm:px-8">
       <div className="mx-auto max-w-3xl">
         <h2 className="font-playfair text-4xl leading-tight tracking-tight text-[#1f2119] sm:text-5xl">
           {heading}
@@ -21,7 +21,7 @@ export default function LandingFooter({ footer = {} }) {
 
         <a
           href={buttonHref}
-          className="mt-9 inline-flex items-center gap-3 rounded-md bg-[#b37b95] px-8 py-4 text-xs font-medium uppercase tracking-[0.2em] text-white transition hover:bg-[#34372b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f2119]"
+          className="mt-9 inline-flex items-center gap-3 rounded-md bg-[#2B1D15] px-8 py-4 text-xs font-medium uppercase tracking-[0.2em] text-white transition hover:bg-[#1D1310] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f2119]"
         >
           {buttonLabel}
           {/* Arrow icon */}

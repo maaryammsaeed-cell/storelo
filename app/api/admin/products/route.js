@@ -7,6 +7,7 @@ import { readData, writeData } from "@/lib/db";
 async function getAdmin() {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_token")?.value;
+ const products = (await readData("products")).filter((p) => !p.deletedAt);
   return token ? await verifyToken(token) : null;
 }
 
@@ -53,7 +54,7 @@ export async function POST(request) {
 
   const products = await readData("products");
 
-  const allowedStatuses = ["active", "inactive", "discontinued", "preorder"];
+  const allowedStatuses = ["active", "inactive", "discontinued", "preorder","sale"];
   const status = allowedStatuses.includes(body.status)
     ? body.status
     : "active";
