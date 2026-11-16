@@ -27,14 +27,63 @@ export async function PATCH(request, ctx) {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });
   }
 
+  // ---- Price validation ----
+  let price = products[index].price;
+  if (body.price !== undefined) {
+    price = Number(body.price);
+    if (!Number.isFinite(price) || price < 0) {
+      return NextResponse.json(
+        { error: "Price must be 0 or greater." },
+        { status: 400 }
+      );
+    }
+  }
+
+  // ---- Stock validation ----
+  let stock = products[index].stock;
+  if (body.stock !== undefined) {
+    stock =
+      body.stock === null || body.stock === ""
+        ? null
+        : Number(body.stock);
+
+    if (stock !== null && (!Number.isFinite(stock) || stock < 0)) {
+      return NextResponse.json(
+        { error: "Stock must be 0 or greater." },
+        { status: 400 }
+      );
+    }
+  }
+
+  // ---- Status validation ----
+  const allowedStatuses = ["active", "inactive", "discontinued", "preorder"];
+  const status =
+    body.status !== undefined
+      ? allowedStatuses.includes(body.status)
+        ? body.status
+        : products[index].status
+      : products[index].status;
+
   products[index] = {
     ...products[index],
     title: body.title ?? products[index].title,
-    price: body.price !== undefined ? Number(body.price) : products[index].price,
+    price,
     category: body.category ?? products[index].category,
     image: body.image ?? products[index].image,
-    stock: body.stock !== undefined ? Number(body.stock) : products[index].stock,
-    status: body.status ?? products[index].status,
+    stock,
+    status,
+    allowBackorder:
+      body.allowBackorder !== undefined
+        ? Boolean(body.allowBackorder)
+        : products[index].allowBackorder === true,
+    preorderReleaseDate:
+      body.preorderReleaseDate !== undefined
+        ? body.preorderReleaseDate || null
+        : products[index].preorderReleaseDate ?? null,
+        description:
+    body.description !== undefined
+      ? String(body.description).trim()
+      : products[index].description ?? "",   // ← naya
   };
 
   await writeData("products", products);

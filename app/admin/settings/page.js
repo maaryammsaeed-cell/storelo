@@ -21,6 +21,7 @@ export default function SettingsPage() {
     currency: "USD",
     lowStockLimit: "10",
     orderPrefix: "STL",
+    allowBackorder: false,
   });
 
   const [prefs, setPrefs] = useState({
@@ -73,7 +74,7 @@ export default function SettingsPage() {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error(data.error || "Settings load nahi hui");
+          throw new Error(data.error || "Unable to load settings.");
         }
 
         if (!active) return;
@@ -86,6 +87,7 @@ export default function SettingsPage() {
           supportEmail: settings.supportEmail || "",
           currency: settings.currency || "USD",
           lowStockLimit: String(settings.lowStockLimit ?? 10),
+          allowBackorder: settings.allowBackorder === true,
           orderPrefix: settings.orderPrefix || "STL",
         });
 
@@ -122,7 +124,7 @@ export default function SettingsPage() {
         setLoadError("");
       } catch (error) {
         if (active) {
-          setLoadError(error.message || "Settings load nahi hui");
+          setLoadError(error.message || "Unable to load settings.");
         }
       } finally {
         if (active) setLoading(false);
@@ -158,7 +160,7 @@ export default function SettingsPage() {
       setMessage("Saved successfully.");
       return true;
     } catch {
-      setError("Network error. TRY AGAIN.");
+      setError("Network error. Please try again.");
       return false;
     } finally {
       setSaving(false);
@@ -176,7 +178,7 @@ export default function SettingsPage() {
     }
 
     if (!Number.isInteger(lowStockLimit) || lowStockLimit < 0) {
-      setStoreError("Low stock limit poora number ho (0 ya zyada).");
+      setStoreError("Low stock limit must be a whole number (0 or greater).");
       return;
     }
 
@@ -198,7 +200,7 @@ export default function SettingsPage() {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      setStoreError(data.error || "Logo upload nahi hua");
+      setStoreError(data.error || "Logo upload failed.");
       return;
     }
 
@@ -207,84 +209,84 @@ export default function SettingsPage() {
   }
 
   async function handlePrefsSubmit(event) {
-      event.preventDefault();
+    event.preventDefault();
 
-      await saveSettings(prefs, setSavingPrefs, setPrefsMessage, setPrefsError);
+    await saveSettings(prefs, setSavingPrefs, setPrefsMessage, setPrefsError);
+  }
+
+  async function handleProfileSubmit(event) {
+    event.preventDefault();
+
+    if (!profile.name.trim()) {
+      setProfileError("Enter your store name.");
+      return;
     }
 
-    async function handleProfileSubmit(event) {
-      event.preventDefault();
+    const ok = await saveSettings(
+      { adminName: profile.name.trim() },
+      setSavingProfile,
+      setProfileMessage,
+      setProfileError
+    );
 
-      if (!profile.name.trim()) {
-        setProfileError("Enter your store name.");
-        return;
-      }
-
-      const ok = await saveSettings(
-        { adminName: profile.name.trim() },
-        setSavingProfile,
-        setProfileMessage,
-        setProfileError
-      );
-
-      if (ok) {
-        setProfile((current) => ({ ...current, name: current.name.trim() }));
-      }
+    if (ok) {
+      setProfile((current) => ({ ...current, name: current.name.trim() }));
     }
+  }
 
-    async function handleContentSubmit(event) {
-      event.preventDefault();
+  async function handleContentSubmit(event) {
+    event.preventDefault();
 
-      await saveSettings(
-        { hero: content.hero, footer: content.footer },
-        setSavingContent,
-        setContentMessage,
-        setContentError
-      );
-    }
+    await saveSettings(
+      { hero: content.hero, footer: content.footer },
+      setSavingContent,
+      setContentMessage,
+      setContentError
+    );
+  }
 
-    // Ek hi field badalne ke liye chhota helper
-    function updateContent(section, key, value) {
-      setContent((current) => ({
-        ...current,
-        [section]: { ...current[section], [key]: value },
-      }));
-    }
+  // Ek hi field badalne ke liye chhota helper
+  function updateContent(section, key, value) {
+    setContent((current) => ({
+      ...current,
+      [section]: { ...current[section], [key]: value },
+    }));
+  }
 
-    const initial = (profile.name || "A").trim().charAt(0).toUpperCase();
+  const initial = (profile.name || "A").trim().charAt(0).toUpperCase();
 
-    return (
-      <section className="min-w-0 flex-1">
-        <header className="mb-6">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-pink-600">
-            Workspace
-          </p>
-          <h1 className="font-playfair text-3xl text-[#831843] sm:text-4xl">
-            Settings
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-[#9d6b82]">
-            Manage your store settings, stay updated with important alerts, and keep your profile information up to date.
-          </p>
-        </header>
+  return (
+    <section className="min-w-0 flex-1">
+      <header className="mb-6">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-pink-600">
+          Workspace
+        </p>
+        <h1 className="font-playfair text-3xl text-[#831843] sm:text-4xl">
+          Settings
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm text-[#9d6b82]">
+          Manage your store settings, stay updated with important alerts, and keep your profile information up to date.
+        </p>
+      </header>
 
-        {loadError && (
-          <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {loadError}
+      {loadError && (
+        <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {loadError}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="h-80 animate-pulse rounded-2xl border border-pink-100 bg-white" />
+          <div className="space-y-5">
+            <div className="h-52 animate-pulse rounded-2xl border border-pink-100 bg-white" />
+            <div className="h-52 animate-pulse rounded-2xl border border-pink-100 bg-white" />
           </div>
-        )}
-
-        {loading ? (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="h-80 animate-pulse rounded-2xl border border-pink-100 bg-white" />
-            <div className="space-y-5">
-              <div className="h-52 animate-pulse rounded-2xl border border-pink-100 bg-white" />
-              <div className="h-52 animate-pulse rounded-2xl border border-pink-100 bg-white" />
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-            {/* ---------------- Left ---------------- */}
-            <div className="space-y-5">
+        </div>
+      ) : (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+          {/* ---------------- Left ---------------- */}
+          <div className="space-y-5">
             <form onSubmit={handleStoreSubmit} className={cardClass}>
               <SectionHeader
                 icon={StoreIcon}
@@ -379,7 +381,27 @@ export default function SettingsPage() {
                     placeholder="10"
                     className={inputClass}
                   />
-                </Field>
+                </Field>            
+                <Field label="Allow backorders">        ← NAYI LINE            
+                <label className="flex items-center gap-2 text-sm text-[#3f1d2e]">                
+                   <input
+                  type="checkbox"
+                  checked={store.allowBackorder}
+                  onChange={(event) =>
+                    setStore((current) => ({
+                      ...current,
+                      allowBackorder: event.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 rounded border-pink-200"
+                />
+                  Allow orders when stock is 0
+                </label>                 
+                  <p className="mt-1 text-[11px] text-[#9d6b82]">
+                    This applies only to products that have their own backorder checkbox enabled.
+                  </p>        
+                 </Field>
+                <Field label="Order prefix"></Field>
 
                 <Field label="Order prefix">
                   <input
@@ -411,7 +433,7 @@ export default function SettingsPage() {
               <SectionHeader
                 icon={PencilIcon}
                 title="Hero & footer text"
-                subtitle="Landing page ka heading, paragraph aur button — Save karte hi site par badal jayega."
+                subtitle="The landing page heading, paragraph, and button will update on the site as soon as you save."
               />
 
               {/* Live preview */}
@@ -555,8 +577,8 @@ export default function SettingsPage() {
               </div>
 
               <p className="mt-4 rounded-xl bg-pink-50/60 px-3 py-2 text-[11px] leading-5 text-[#9d6b82]">
-                Koi box khali chhoren to wahan <strong>default text</strong> wapas
-                aa jayega — site kabhi khali nahi dikhegi.
+                If you leave a field empty, the <strong>default text</strong> will be
+                restored, so the site will never appear empty.
               </p>
 
               <FormFooter
@@ -566,254 +588,254 @@ export default function SettingsPage() {
                 label="Save hero & footer"
               />
             </form>
-            </div>
-
-            {/* ---------------- Right ---------------- */}
-            <aside className="space-y-5">
-              {/* Profile */}
-              <form onSubmit={handleProfileSubmit} className={cardClass}>
-                <div className="flex items-center gap-3">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-pink-200 to-[#e7b7c8] font-playfair text-xl font-bold text-[#831843]">
-                    {initial}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#831843]">
-                      {profile.name || "Admin"}
-                    </p>
-                    <p className="truncate text-xs text-[#9d6b82]">
-                      {profile.email}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-4">
-                  <Field label="Display name">
-                    <input
-                      type="text"
-                      value={profile.name}
-                      onChange={(event) =>
-                        setProfile((current) => ({
-                          ...current,
-                          name: event.target.value,
-                        }))
-                      }
-                      placeholder="Storelo Admin"
-                      className={inputClass}
-                    />
-                  </Field>
-
-                  <Field label="Email">
-                    <input
-                      type="email"
-                      value={profile.email}
-                      disabled
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
-
-                <FormFooter
-                  saving={savingProfile}
-                  message={profileMessage}
-                  error={profileError}
-                  label="Save profile"
-                />
-              </form>
-
-              {/* Preferences */}
-              <form onSubmit={handlePrefsSubmit} className={cardClass}>
-                <SectionHeader
-                  icon={BellIcon}
-                  title="Notifications"
-                  subtitle="Choose which notifications you want to receive."
-                />
-
-                <div className="mt-4 space-y-3">
-                  <ToggleRow
-                    title="Email notifications"
-                    hint="Naye orders ki email alerts"
-                    checked={prefs.emailNotifications}
-                    onChange={(value) =>
-                      setPrefs((current) => ({
-                        ...current,
-                        emailNotifications: value,
-                      }))
-                    }
-                  />
-
-                  <ToggleRow
-                    title="Order alerts"
-                    hint="Receive notifications for every new order."
-                    checked={prefs.orderNotifications}
-                    onChange={(value) =>
-                      setPrefs((current) => ({
-                        ...current,
-                        orderNotifications: value,
-                      }))
-                    }
-                  />
-                </div>
-
-                <FormFooter
-                  saving={savingPrefs}
-                  message={prefsMessage}
-                  error={prefsError}
-                  label="Save preferences"
-                />
-              </form>
-
-              {/* Summary */}
-              <div className="rounded-2xl border border-[#f0e2d0] bg-gradient-to-b from-[#fdf6ec] to-white p-5">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-[#831843]">
-                  Quick summary
-                </h2>
-
-                <dl className="mt-3 space-y-2 text-xs">
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-[#9d6b82]">Store</dt>
-                    <dd className="truncate font-semibold text-[#5b2b3d]">
-                      {store.storeName || "—"}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-[#9d6b82]">Currency</dt>
-                    <dd className="font-semibold text-[#5b2b3d]">
-                      {store.currency}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-[#9d6b82]">Order prefix</dt>
-                    <dd className="font-semibold text-[#5b2b3d]">
-                      {store.orderPrefix}
-                    </dd>
-                  </div>
-                </dl>
-
-                <p className="mt-4 rounded-xl bg-white/80 px-3 py-2 text-[11px] leading-5 text-[#9d6b82] ring-1 ring-[#f0e2d0]">
-                  These settings are saved in the MongoDB <strong>settings</strong> collection.
-                </p>
-              </div>
-            </aside>
           </div>
-        )}
-      </section>
-    );
-  }
 
-  /* ---------------- Helpers ---------------- */
+          {/* ---------------- Right ---------------- */}
+          <aside className="space-y-5">
+            {/* Profile */}
+            <form onSubmit={handleProfileSubmit} className={cardClass}>
+              <div className="flex items-center gap-3">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-pink-200 to-[#e7b7c8] font-playfair text-xl font-bold text-[#831843]">
+                  {initial}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#831843]">
+                    {profile.name || "Admin"}
+                  </p>
+                  <p className="truncate text-xs text-[#9d6b82]">
+                    {profile.email}
+                  </p>
+                </div>
+              </div>
 
-  function Field({ label, children }) {
-    return (
-      <label className="block">
-        <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#7c4a5e]">
-          {label}
-        </span>
-        {children}
-      </label>
-    );
-  }
+              <div className="mt-5 space-y-4">
+                <Field label="Display name">
+                  <input
+                    type="text"
+                    value={profile.name}
+                    onChange={(event) =>
+                      setProfile((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    placeholder="Storelo Admin"
+                    className={inputClass}
+                  />
+                </Field>
 
-  function SectionHeader({ icon: Icon, title, subtitle }) {
-    return (
-      <div className="flex items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-pink-100 text-pink-600">
-          <Icon />
-        </span>
-        <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-[#831843]">
-            {title}
-          </h2>
-          <p className="mt-0.5 text-xs text-[#9d6b82]">{subtitle}</p>
+                <Field label="Email">
+                  <input
+                    type="email"
+                    value={profile.email}
+                    disabled
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+
+              <FormFooter
+                saving={savingProfile}
+                message={profileMessage}
+                error={profileError}
+                label="Save profile"
+              />
+            </form>
+
+            {/* Preferences */}
+            <form onSubmit={handlePrefsSubmit} className={cardClass}>
+              <SectionHeader
+                icon={BellIcon}
+                title="Notifications"
+                subtitle="Choose which notifications you want to receive."
+              />
+
+              <div className="mt-4 space-y-3">
+                <ToggleRow
+                  title="Email notifications"
+                  hint="Naye orders ki email alerts"
+                  checked={prefs.emailNotifications}
+                  onChange={(value) =>
+                    setPrefs((current) => ({
+                      ...current,
+                      emailNotifications: value,
+                    }))
+                  }
+                />
+
+                <ToggleRow
+                  title="Order alerts"
+                  hint="Receive notifications for every new order."
+                  checked={prefs.orderNotifications}
+                  onChange={(value) =>
+                    setPrefs((current) => ({
+                      ...current,
+                      orderNotifications: value,
+                    }))
+                  }
+                />
+              </div>
+
+              <FormFooter
+                saving={savingPrefs}
+                message={prefsMessage}
+                error={prefsError}
+                label="Save preferences"
+              />
+            </form>
+
+            {/* Summary */}
+            <div className="rounded-2xl border border-[#f0e2d0] bg-gradient-to-b from-[#fdf6ec] to-white p-5">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-[#831843]">
+                Quick summary
+              </h2>
+
+              <dl className="mt-3 space-y-2 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="text-[#9d6b82]">Store</dt>
+                  <dd className="truncate font-semibold text-[#5b2b3d]">
+                    {store.storeName || "—"}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="text-[#9d6b82]">Currency</dt>
+                  <dd className="font-semibold text-[#5b2b3d]">
+                    {store.currency}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="text-[#9d6b82]">Order prefix</dt>
+                  <dd className="font-semibold text-[#5b2b3d]">
+                    {store.orderPrefix}
+                  </dd>
+                </div>
+              </dl>
+
+              <p className="mt-4 rounded-xl bg-white/80 px-3 py-2 text-[11px] leading-5 text-[#9d6b82] ring-1 ring-[#f0e2d0]">
+                These settings are saved in the MongoDB <strong>settings</strong> collection.
+              </p>
+            </div>
+          </aside>
         </div>
+      )}
+    </section>
+  );
+}
+
+/* ---------------- Helpers ---------------- */
+
+function Field({ label, children }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-[#7c4a5e]">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, subtitle }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-pink-100 text-pink-600">
+        <Icon />
+      </span>
+      <div>
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[#831843]">
+          {title}
+        </h2>
+        <p className="mt-0.5 text-xs text-[#9d6b82]">{subtitle}</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  function FormFooter({ saving, message, error, label }) {
-    return (
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-pink-50 pt-4">
-        <div className="min-w-0 text-xs">
-          {error ? (
-            <span className="text-rose-600">{error}</span>
-          ) : message ? (
-            <span className="text-emerald-600">{message}</span>
-          ) : null}
-        </div>
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-xl bg-[#831843] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#6b1236] disabled:opacity-60"
-        >
-          {saving ? "Saving..." : label}
-        </button>
+function FormFooter({ saving, message, error, label }) {
+  return (
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-pink-50 pt-4">
+      <div className="min-w-0 text-xs">
+        {error ? (
+          <span className="text-rose-600">{error}</span>
+        ) : message ? (
+          <span className="text-emerald-600">{message}</span>
+        ) : null}
       </div>
-    );
-  }
 
-  function ToggleRow({ title, hint, checked, onChange }) {
-    return (
-      <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-pink-100 bg-white p-3">
-        <span>
-          <span className="block text-sm font-medium text-[#5b2b3d]">
-            {title}
-          </span>
-          <span className="block text-xs text-[#9d6b82]">{hint}</span>
-        </span>
-
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => onChange(event.target.checked)}
-          className="h-5 w-5 shrink-0 accent-[#831843]"
-        />
-      </label>
-    );
-  }
-
-  /* ---------------- Icons ---------------- */
-
-  function IconBase({ children }) {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-4 w-4"
-        aria-hidden="true"
+      <button
+        type="submit"
+        disabled={saving}
+        className="rounded-xl bg-[#831843] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-[#6b1236] disabled:opacity-60"
       >
-        {children}
-      </svg>
-    );
-  }
+        {saving ? "Saving..." : label}
+      </button>
+    </div>
+  );
+}
 
-  function StoreIcon() {
-    return (
-      <IconBase>
-        <path d="M3 9.5 4.5 4h15L21 9.5" />
-        <path d="M4 9.5V20h16V9.5" />
-        <path d="M9 20v-6h6v6" />
-      </IconBase>
-    );
-  }
+function ToggleRow({ title, hint, checked, onChange }) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-pink-100 bg-white p-3">
+      <span>
+        <span className="block text-sm font-medium text-[#5b2b3d]">
+          {title}
+        </span>
+        <span className="block text-xs text-[#9d6b82]">{hint}</span>
+      </span>
 
-  function PencilIcon() {
-    return (
-      <IconBase>
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-      </IconBase>
-    );
-  }
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-5 w-5 shrink-0 accent-[#831843]"
+      />
+    </label>
+  );
+}
 
-  function BellIcon() {
-    return (
-      <IconBase>
-        <path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7" />
-        <path d="M10.5 20a2 2 0 0 0 3 0" />
-      </IconBase>
-    );
-  }
+/* ---------------- Icons ---------------- */
+
+function IconBase({ children }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function StoreIcon() {
+  return (
+    <IconBase>
+      <path d="M3 9.5 4.5 4h15L21 9.5" />
+      <path d="M4 9.5V20h16V9.5" />
+      <path d="M9 20v-6h6v6" />
+    </IconBase>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <IconBase>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </IconBase>
+  );
+}
+
+function BellIcon() {
+  return (
+    <IconBase>
+      <path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7" />
+      <path d="M10.5 20a2 2 0 0 0 3 0" />
+    </IconBase>
+  );
+}

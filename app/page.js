@@ -7,64 +7,89 @@ import ProductSection from "@/components/ProductSection";
 import ServicesSection from "@/components/ServicesSection";
 import LandingFooter from "@/components/LandingFooter";
 import { readData } from "@/lib/db";
-import { getSettings } from "@/lib/settings";   // 👈 NAYA
-import { demoProducts } from "@/data/products";
+import { getSettings } from "@/lib/settings";
 
-// Ye page settings ko database se laata hai, is liye static prerender nahi ho
-// sakta. instant = false Next ko batata hai ke ye blocking route hai.
 export const instant = false;
 
 async function getProducts() {
   try {
-    // Yeh data/db/products.json file ko padhega jo Dashboard ne save ki hai
     const products = await readData("products");
 
-    // React key ke liye _id aur id dono ko handle karta hai
-    return products.map((product) => ({
-      ...product,
-      _id: product._id || product.id,
-    }));
+    return {
+      products: products.map((product) => ({
+        ...product,
+        _id: product._id || product.id,
+      })),
+      error: "",
+    };
   } catch (error) {
-    console.error("Products read karne me masla:", error.message);
-    return [];
+    console.error("Products read error:", error.message);
+    return {
+      products: [],
+      error: "Stock information could not be loaded.",
+    };
   }
 }
 
-// DB wala kaam alag component me hai taake hero foran load ho jaye
-async function ProductsFromDatabase({ currency }) {
-  const products = await getProducts();
+async function ProductsFromDatabase({
+  currency,
+  lowStockLimit,
+  allowBackorder,
+}) {
+  const { products, error } = await getProducts();
+
+  if (error) {
+    return (
+      <p className="px-5 py-16 text-center text-sm text-[#b3453b]">
+        {error} Please refresh.
+      </p>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <p className="px-5 py-16 text-center text-sm text-[#8b8679]">
+        No products available.
+      </p>
+    );
+  }
+
   return (
     <ProductSection
-      products={products.length > 0 ? products : demoProducts}
+      products={products}
       currency={currency}
+      lowStockLimit={lowStockLimit}
+      allowBackorder={allowBackorder}
     />
   );
 }
 
 export default async function Home() {
-  // 👇 2 nayi lines — har request par fresh settings
   await connection();
   const settings = await getSettings();
 
   return (
     <div className="flex min-h-screen flex-col bg-white font-sans">
-      {/* 👇 props add hue */}
       <Landingnavbar storeName={settings.storeName} logo={settings.logo} />
 
       <main className="flex flex-1 flex-col">
-        {/* 👇 props add hue */}
         <Landingherosec hero={settings.hero} />
 
         <Suspense
           fallback={
-            <ProductSection products={demoProducts} currency={settings.currency} />
+            <p className="px-5 py-16 text-center text-sm text-[#8b8679]">
+              Loading products...
+            </p>
           }
         >
-          <ProductsFromDatabase currency={settings.currency} />
+          <ProductsFromDatabase
+            currency={settings.currency}
+            lowStockLimit={settings.lowStockLimit}
+            allowBackorder={settings.allowBackorder}
+          />
         </Suspense>
-        <ServicesSection />
 
-        {/* 👇 props add hue */}
+        <ServicesSection />
         <LandingFooter footer={settings.footer} />
       </main>
     </div>

@@ -4,8 +4,6 @@ import { getDemoStoreData } from "@/lib/demo-api";
 import { getSettings } from "@/lib/settings";
 import { formatPrice } from "@/lib/format";
 
-const LOW_STOCK_LIMIT = 10;
-
 function timeAgo(dateString) {
   const diff = Date.now() - new Date(dateString).getTime();
 
@@ -26,7 +24,9 @@ function timeAgo(dateString) {
 export async function GET() {
   await connection();
 
-  const settings = await getSettings();   // 👈 NAYA
+  const settings = await getSettings();
+  // Low stock limit ab Settings se aata hai (hardcoded nahi)
+  const lowStockLimit = Number(settings?.lowStockLimit ?? 10);
 
   try {
     const { products, carts, users } = await getDemoStoreData();
@@ -35,20 +35,26 @@ export async function GET() {
 
     // ---------- 1. Low / out of stock alerts ----------
     const lowStock = [...products]
-      .filter((product) => product.stock <= LOW_STOCK_LIMIT)
-      .sort((a, b) => a.stock - b.stock)
+      .filter(
+        (product) =>
+          product.stock !== null &&
+          product.stock !== undefined &&
+          Number(product.stock) <= lowStockLimit
+      )
+      .sort((a, b) => Number(a.stock) - Number(b.stock))
       .slice(0, 6);
 
     lowStock.forEach((product, index) => {
+      const stock = Number(product.stock);
       notifications.push({
         id: `stock-${product.id}`,
         type: "stock",
-        title: product.stock === 0 ? "Out of Stock" : "Low Stock Alert",
+        title: stock <= 0 ? "Out of Stock" : "Low Stock Alert",
         message:
-          product.stock === 0
-            ? `"${product.title}" is out of stock. Restock it soon.`
-            : `"${product.title}" has only ${product.stock} item${product.stock > 1 ? "s" : ""
-            } left in stock.`,
+          stock <= 0
+            ? `"${product.title}" is out of stock. Please restock it soon.`
+            : `"${product.title}" has only ${stock} item${stock > 1 ? "s" : ""
+            } remaining in stock.`,
         createdAt: new Date(now - (index + 1) * 45 * 60 * 1000).toISOString(),
       });
     });

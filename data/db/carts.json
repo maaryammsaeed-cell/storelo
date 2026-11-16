@@ -1,0 +1,17 @@
+[
+  {
+    "id": "77b8543f-051f-49ad-a026-8dafe3606d77",
+    "items": [
+      {
+        "productId": "5e945fee-06e9-4e99-8f8b-089e0bb781bc",
+        "quantity": 1
+      },
+      {
+        "productId": "p7",
+        "quantity": 18
+      }
+    ],
+    "createdAt": "2026-11-04T21:28:51.437Z",
+    "updatedAt": "2026-11-08T09:55:58.098Z"
+  }
+]

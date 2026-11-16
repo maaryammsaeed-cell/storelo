@@ -59,7 +59,7 @@ export async function GET() {
   } catch (error) {
     console.error("Settings load error:", error?.message);
     return NextResponse.json(
-      { error: "Settings load nahi hui" },
+      { error: "Unable to load settings." },
       { status: 500 }
     );
   }
@@ -82,7 +82,7 @@ export async function PATCH(request) {
       const storeName = String(body.storeName).trim();
       if (!storeName) {
         return NextResponse.json(
-          { error: "Store name khali nahi ho sakta" },
+          { error: "Store name cannot be empty." },
           { status: 400 }
         );
       }
@@ -93,7 +93,7 @@ export async function PATCH(request) {
       const logo = String(body.logo).trim();
       if (logo && !logo.startsWith("/uploads/") && !logo.startsWith("/images/")) {
         return NextResponse.json(
-          { error: "Logo path sahi nahi hai" },
+          { error: "Invalid logo path." },
           { status: 400 }
         );
       }
@@ -156,7 +156,7 @@ export async function PATCH(request) {
       const supportEmail = String(body.supportEmail).trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supportEmail)) {
         return NextResponse.json(
-          { error: "Support email sahi nahi hai" },
+          { error: "Invalid support email address." },
           { status: 400 }
         );
       }
@@ -175,18 +175,22 @@ export async function PATCH(request) {
         lowStockLimit > 1000
       ) {
         return NextResponse.json(
-          { error: "Low stock limit 0 se 1000 ke darmiyan ho" },
+          { error: "Low stock limit must be between 0 and 1000." },
           { status: 400 }
         );
       }
       update.lowStockLimit = lowStockLimit;
     }
 
+    if (body.allowBackorder !== undefined) {
+      update.allowBackorder = Boolean(body.allowBackorder);
+    }
+
     if (body.orderPrefix !== undefined) {
       const orderPrefix = String(body.orderPrefix).trim().toUpperCase();
       if (!/^[A-Z]{2,5}$/.test(orderPrefix)) {
         return NextResponse.json(
-          { error: "Order prefix 2 se 5 letters ka ho" },
+          { error: "Order prefix must be 2 to 5 letters long." },
           { status: 400 }
         );
       }
@@ -223,7 +227,7 @@ export async function PATCH(request) {
       const name = String(body.adminName).trim();
       if (!name) {
         return NextResponse.json(
-          { error: "Admin name khali nahi ho sakta" },
+          { error: "Admin name cannot be empty." },
           { status: 400 }
         );
       }
@@ -247,10 +251,10 @@ export async function PATCH(request) {
         ? { name: adminDoc.name || "Admin", email: adminDoc.email }
         : null,
     });
-  } catch (error) {
+  } catch(error) {
     console.error("Settings update error:", error?.message);
     return NextResponse.json(
-      { error: "Settings save nahi hui" },
+      { error: "Unable to save settings." },
       { status: 500 }
     );
   }

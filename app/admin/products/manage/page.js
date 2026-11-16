@@ -1,6 +1,7 @@
 "use client";
 
 import { useCurrency } from "@/lib/useCurrency";
+import { useStoreSettings } from "@/lib/useStoreSettings";
 import { formatPrice } from "@/lib/format";
 
 import { useCallback, useEffect, useState } from "react";
@@ -13,14 +14,34 @@ const EMPTY_FORM = {
   image: "/images/products/tshirt.jpg",
   stock: "",
   status: "active",
+  allowBackorder: false,
+  preorderReleaseDate: "",
+  description: "",
 };
 
 const inputClass =
   "w-full rounded-xl border border-pink-100 bg-white px-3 py-2 text-sm text-[#3f1d2e] outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100";
 
+// Table ke Status column ke liye label + colour
+function getStatusBadge(status) {
+  if (status === "discontinued") {
+    return { label: "Discontinued", className: "bg-stone-200 text-stone-700" };
+  }
+  if (status === "preorder") {
+    return { label: "Preorder", className: "bg-sky-50 text-sky-700" };
+  }
+  if (status === "inactive") {
+    return { label: "Inactive", className: "bg-gray-100 text-gray-600" };
+  }
+  return { label: "Active", className: "bg-emerald-50 text-emerald-700" };
+}
+
 export default function ManageProductsPage() {
 
-  const currency = useCurrency(); 
+  const currency = useCurrency();
+  // Store-wide backorder permission (Settings page se)
+  const { allowBackorder: storeAllowBackorder } = useStoreSettings();
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,7 +65,7 @@ export default function ManageProductsPage() {
       const res = await fetch("/api/admin/products", { cache: "no-store" });
 
       if (res.status === 401) {
-        setError("Session khatam ho gaya. Dobara login karo.");
+        setError("Your session has expired. Please log in again.");
         return;
       }
 
@@ -53,7 +74,7 @@ export default function ManageProductsPage() {
       const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
     } catch {
-      setError("Products load nahi ho sake. Terminal mein error check karo.");
+      setError("Unable to load products. Please check the terminal for errors.");
     } finally {
       setLoading(false);
     }
@@ -73,63 +94,79 @@ export default function ManageProductsPage() {
 
   // ---------- FORM OPEN / CLOSE ----------
 
-    function openAddForm() {
-      setEditingId(null);
-      setForm(EMPTY_FORM);
-      setSelectedFile(null);
-      setPreviewUrl("");
-      setFormError("");
-      setFormOpen(true);
-    }
+  function openAddForm() {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setSelectedFile(null);
+    setPreviewUrl("");
+    setFormError("");
+    setFormOpen(true);
+  }
 
-    function openEditForm(product) {
-      setEditingId(product.id);
-      setForm({
-        title: product.title || "",
-        price: product.price ?? "",
-        category: product.category || "",
-        image: product.image || "",
-        stock: product.stock ?? "",
-        status: product.status || "active",
-      });
-      setSelectedFile(null);
-      setPreviewUrl(product.image || "");
-      setFormError("");
-      setFormOpen(true);
-    }
+  function openEditForm(product) {
+    setEditingId(product.id);
+    setForm({
+      title: product.title || "",
+      price: product.price ?? "",
+      category: product.category || "",
+      image: product.image || "",
+      stock: product.stock ?? "",
+      status: product.status || "active",
+      allowBackorder: product.allowBackorder === true,
+      preorderReleaseDate: product.preorderReleaseDate || "",
+      description: product.description || "",   // ← naya
+    });
+    setSelectedFile(null);
+    setPreviewUrl(product.image || "");
+    setFormError("");
+    setFormOpen(true);
+  }
 
-    function closeForm() {
-      setFormOpen(false);
-      setEditingId(null);
-      setSelectedFile(null);
-      setPreviewUrl("");
-      setFormError("");
-    }
+  function closeForm() {
+    setFormOpen(false);
+    setEditingId(null);
+    setSelectedFile(null);
+    setPreviewUrl("");
+    setFormError("");
+  }
 
-    function changeField(event) {
-      const { name, value } = event.target;
-      setForm((current) => ({ ...current, [name]: value }));
-    }
+  function changeField(event) {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  }
 
-    function handleFileChange(event) {
-      const file = event.target.files?.[0];
-      if (file) {
-        setSelectedFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
-      }
+  function handleFileChange(event) {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
     }
+  }
   // ---------- CREATE + UPDATE ----------
   async function handleSubmit(event) {
     event.preventDefault();
     setFormError("");
 
     if (!form.title.trim()) {
-      setFormError("Title zaroori hai.");
+      setFormError("Title is required.");
       return;
     }
 
     if (form.price === "" || Number(form.price) < 0) {
-      setFormError("Price 0 ya us se zyada hona chahiye.");
+      setFormError("Price must be 0 or greater.");
+      return;
+    }
+
+    if (form.stock !== "") {
+      const stockValue = Number(form.stock);
+      if (!Number.isFinite(stockValue) || stockValue < 0) {
+        setFormError("Stock must be 0 or greater.");
+        return;
+      }
+    }
+
+    if (form.status === "preorder" && !form.preorderReleaseDate) {
+      setFormError("A release date is required for preorder products.");
       return;
     }
 
@@ -140,25 +177,25 @@ export default function ManageProductsPage() {
       const url = wasEditing
         ? `/api/admin/products/${editingId}`
         : "/api/admin/products";
-        let finalImage = form.image || "/images/products/tshirt.jpg";
-    
-          // Agar computer se nayi picture select ki hai toh pehle upload karo
-          if (selectedFile) {
-            const uploadData = new FormData();
-            uploadData.append("file", selectedFile);
-    
-            const uploadRes = await fetch("/api/admin/upload", {
-              method: "POST",
-              body: uploadData,
-            });
-    
-            const uploadDataJson = await uploadRes.json();
-            if (!uploadRes.ok) {
-              throw new Error(uploadDataJson.error || "Image upload fail hui");
-            }
-            finalImage = uploadDataJson.url;
-          }
-    
+      let finalImage = form.image || "/images/products/tshirt.jpg";
+
+      // Agar computer se nayi picture select ki hai toh pehle upload karo
+      if (selectedFile) {
+        const uploadData = new FormData();
+        uploadData.append("file", selectedFile);
+
+        const uploadRes = await fetch("/api/admin/upload", {
+          method: "POST",
+          body: uploadData,
+        });
+
+        const uploadDataJson = await uploadRes.json();
+        if (!uploadRes.ok) {
+          throw new Error(uploadDataJson.error || "Image upload failed.");
+        }
+        finalImage = uploadDataJson.url;
+      }
+
       const res = await fetch(url, {
         method: wasEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -167,20 +204,28 @@ export default function ManageProductsPage() {
           price: Number(form.price),
           category: form.category.trim() || "General",
           image: finalImage,
-          stock: Number(form.stock || 0),
+          stock: form.stock === "" ? null : Number(form.stock),
           status: form.status,
+          description: form.description.trim(),
+          // Store-wide OFF ho to per-product backorder save hi na ho
+          allowBackorder: storeAllowBackorder && form.allowBackorder === true,
+          preorderReleaseDate: form.preorderReleaseDate || null,
         }),
       });
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || "Save nahi hua");
+      if (!res.ok) throw new Error(data.error || "Unable to save.");
 
       await loadProducts();
       closeForm();
-      setMessage(wasEditing ? "Product update ho gaya ✅" : "Naya product add ho gaya ✅");
+      setMessage(
+        wasEditing
+          ? "Product updated successfully ✅"
+          : "New product added successfully ✅"
+      );
     } catch (err) {
-      setFormError(err.message || "Save nahi hua. Dobara try karo.");
+      setFormError(err.message || "Unable to save. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -189,7 +234,7 @@ export default function ManageProductsPage() {
   // ---------- DELETE ----------
   async function handleDelete(product) {
     const ok = window.confirm(
-      `Delete "${product.title}"? Ye wapas nahi aayega.`
+      `Delete "${product.title}"? This action cannot be undone.`
     );
     if (!ok) return;
 
@@ -201,9 +246,9 @@ export default function ManageProductsPage() {
       if (!res.ok) throw new Error("Delete failed");
 
       await loadProducts();
-      setMessage("Product delete ho gaya 🗑️");
+      setMessage("Product deleted successfully 🗑️");
     } catch {
-      setError("Product delete nahi hua. Dobara try karo.");
+      setError("Unable to delete product. Please try again.");
     }
   }
 
@@ -275,7 +320,19 @@ export default function ManageProductsPage() {
                 className={inputClass}
               />
             </div>
-
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-semibold text-[#7c4a5e]">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={changeField}
+                rows={4}
+                placeholder="Product ki tafseel likhein..."
+                className={inputClass}
+              />
+            </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-[#7c4a5e]">
                 Price *
@@ -370,7 +427,7 @@ export default function ManageProductsPage() {
                 )}
               </div>
               <p className="mt-2 text-[11px] text-[#9d6b82]">
-                Apne computer se product ki photo select karein. Save karne par landing page par show hogi.
+                Select a product image from your computer. Once saved, it will be displayed on the landing page.
               </p>
             </div>
 
@@ -385,9 +442,57 @@ export default function ManageProductsPage() {
                 className={inputClass}
               >
                 <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="inactive">Inactive (Temporarily Unavailable)</option>
+                <option value="discontinued">Discontinued</option>
+                <option value="preorder">Preorder</option>
               </select>
             </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#7c4a5e]">
+                Allow Backorder
+              </label>
+              <label
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${storeAllowBackorder
+                    ? "border-pink-100 bg-white text-[#3f1d2e]"
+                    : "cursor-not-allowed border-pink-100/60 bg-stone-50 text-[#9d6b82]"
+                  }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={storeAllowBackorder && form.allowBackorder}
+                  disabled={!storeAllowBackorder}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      allowBackorder: event.target.checked,
+                    }))
+                  }
+                  className="h-4 w-4 accent-pink-600 disabled:cursor-not-allowed"
+                />
+                Allow orders when stock reaches 0.
+              </label>
+              <p className="mt-1 text-[11px] text-[#9d6b82]">
+                {storeAllowBackorder
+                  ? "This product can accept backorders when stock reaches 0."
+                  : "Enable backorders in Settings first to use this option."}
+              </p>
+            </div>
+
+            {form.status === "preorder" ? (
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-[#7c4a5e]">
+                  Preorder Release Date *
+                </label>
+                <input
+                  name="preorderReleaseDate"
+                  type="date"
+                  value={form.preorderReleaseDate}
+                  onChange={changeField}
+                  className={inputClass}
+                />
+              </div>
+            ) : null}
           </div>
 
           {formError && (
@@ -424,9 +529,9 @@ export default function ManageProductsPage() {
         </div>
       ) : products.length === 0 ? (
         <div className="rounded-2xl border border-pink-100 bg-white p-12 text-center shadow-sm">
-          <p className="text-lg font-medium text-[#831843]">Koi product nahi</p>
+          <p className="text-lg font-medium text-[#831843]">No products found</p>
           <p className="mt-1 text-sm text-[#9d6b82]">
-            &quot;Add Product&quot; dabao aur pehla product banao.
+            Click &quot;Add Product&quot; to create your first product.
           </p>
         </div>
       ) : (
@@ -484,13 +589,20 @@ export default function ManageProductsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          product.status === "active"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${product.status === "active"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-gray-100 text-gray-600"
+                          }`}
                       >
-                        {product.status === "active" ? "Active" : "Inactive"}
+                        {product.status === "active"
+                          ? "Active"
+                          : product.status === "inactive"
+                            ? "Inactive (Temporarily Unavailable)"
+                            : product.status === "discontinued"
+                              ? "Discontinued"
+                              : product.status === "preorder"
+                                ? "Preorder"
+                                : "Unknown"}
                       </span>
                     </td>
                     <td className="px-4 py-3">

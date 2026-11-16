@@ -49,7 +49,7 @@
     if (body.logo !== undefined) {
   const logo = String(body.logo).trim();
   if (logo && !logo.startsWith("/uploads/") && !logo.startsWith("/images/")) {
-    return NextResponse.json({ error: "Logo path sahi nahi hai" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid logo path." }, { status: 400 });
   }
   update.logo = logo;
 }

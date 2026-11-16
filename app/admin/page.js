@@ -12,6 +12,9 @@ import CategoryBarChart from "@/components/admin/charts/CategoryBarChart";
 import { getSettings } from "@/lib/settings";   // 👈 NAYA
 import { formatPrice } from "@/lib/format";     // 👈 NAYA
 
+// Dashboard har request par fresh data dikhata hai — static prerender nahi
+export const instant = false;
+
 async function getStoreData() {
   try {
     return await getDemoStoreData();

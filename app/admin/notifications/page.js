@@ -62,7 +62,7 @@ export default function NotificationsPage() {
       } catch {
         if (active) {
           setError(
-            "Notifications load nahi hui. Internet check karke dobara try karein."
+            "Unable to load notifications. Please check your internet connection and try again."
           );
         }
       } finally {
@@ -135,7 +135,7 @@ export default function NotificationsPage() {
           </h1>
 
           <p className="mt-1 max-w-xl text-sm text-pink-900/70">
-            Live store activity — naye orders, customers aur low stock alerts.
+            Live store activity — new orders, customers, and low stock alerts.
           </p>
         </div>
 
@@ -238,7 +238,7 @@ export default function NotificationsPage() {
             No Notifications Found
           </h3>
           <p className="mx-auto mt-1 max-w-sm text-sm text-pink-900/60">
-            Is filter mein koi update nahi hai. Aap bilkul up to date hain!
+            There are no updates in this filter. You are all caught up!
           </p>
         </div>
       ) : (

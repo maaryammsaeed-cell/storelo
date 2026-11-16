@@ -7,7 +7,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 
 export default function OrdersPage() {
-  const currency = useCurrency(); 
+  const currency = useCurrency();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,7 +88,7 @@ export default function OrdersPage() {
         iconClass: "text-purple-600 bg-purple-100/70",
       },
     ];
-  }, [orders , currency]);
+  }, [orders, currency]);
 
   // Filter & Sort orders
   const filteredOrders = useMemo(() => {
@@ -376,12 +376,25 @@ export default function OrdersPage() {
                         <p className="mt-1 line-clamp-1 max-w-[200px] text-xs text-[#5b2b3d]" title={order.itemsSummary}>
                           {order.itemsSummary}
                         </p>
+
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {order.hasPreorder ? (
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                              Preorder
+                            </span>
+                          ) : null}
+                          {order.hasBackorder ? (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                              Backorder
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
 
                       {/* Total & Payment */}
                       <td className="px-5 py-3.5">
                         <p className="font-bold text-[#831843]">
-                         {formatPrice(order.totalAmount, currency)}
+                          {formatPrice(order.totalAmount, currency)}
                         </p>
                         <div className="flex items-center gap-1.5 text-[11px] text-[#9d6b82]">
                           <span>{order.paymentMethod}</span>
@@ -500,6 +513,18 @@ export default function OrdersPage() {
                 <span className="text-[#9d6b82]">Products Package:</span>
                 <span className="font-medium text-[#831843]">{selectedOrder.itemsSummary}</span>
               </div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {order.hasPreorder ? (
+                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                    Preorder
+                  </span>
+                ) : null}
+                {order.hasBackorder ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                    Backorder
+                  </span>
+                ) : null}
+              </div>
               <div className="flex justify-between">
                 <span className="text-[#9d6b82]">Payment Method:</span>
                 <span className="font-medium text-[#831843]">{selectedOrder.paymentMethod}</span>
@@ -591,16 +616,6 @@ function SearchIcon({ className }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-
-function DownloadIcon({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" x2="12" y1="15" y2="3" />
     </svg>
   );
 }

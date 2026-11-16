@@ -37,7 +37,26 @@ export async function POST(request) {
     );
   }
 
+  // ---- Stock validation ----
+  const rawStock = body.stock;
+  const stock =
+    rawStock === undefined || rawStock === null || rawStock === ""
+      ? null
+      : Number(rawStock);
+
+  if (stock !== null && (!Number.isFinite(stock) || stock < 0)) {
+    return NextResponse.json(
+      { error: "Stock must be 0 or greater." },
+      { status: 400 }
+    );
+  }
+
   const products = await readData("products");
+
+  const allowedStatuses = ["active", "inactive", "discontinued", "preorder"];
+  const status = allowedStatuses.includes(body.status)
+    ? body.status
+    : "active";
 
   const newProduct = {
     id: crypto.randomUUID(),
@@ -45,8 +64,12 @@ export async function POST(request) {
     price: Number(body.price),
     category: body.category || "General",
     image: body.image || "/images/products/tshirt.jpg",
-    stock: Number(body.stock || 0),
-    status: body.status === "inactive" ? "inactive" : "active",
+    stock,
+    status,
+    description: String(body.description || "").trim(),
+    allowBackorder: body.allowBackorder === true,
+    preorderReleaseDate:
+      status === "preorder" ? body.preorderReleaseDate || null : null,
   };
 
   products.push(newProduct);

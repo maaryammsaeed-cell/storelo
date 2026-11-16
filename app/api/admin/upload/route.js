@@ -49,7 +49,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json(
-      { error: "Image upload failed. Dobara try karein." },
+      { error: "Image upload failed. Please try again." },
       { status: 500 }
     );
   }

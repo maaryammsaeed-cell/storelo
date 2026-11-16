@@ -1,74 +1,156 @@
 [
   {
-    "id": "p1",
-    "title": "Unisex Basic T-Shirt",
-    "price": 75,
-    "category": "Men",
-    "image": "/images/products/tshirt.jpg",
-    "stock": 25,
-    "status": "active"
-  },
-  {
-    "id": "p3",
-    "title": "Polo Shirt",
-    "price": 75,
-    "category": "Men",
-    "image": "/images/products/polo.jpg",
-    "stock": 18,
-    "status": "active"
-  },
-  {
-    "id": "p4",
-    "title": "Joggers / Sweatpants",
-    "price": 100,
-    "category": "Men",
-    "image": "/images/products/joggers.jpg",
-    "stock": 6,
-    "status": "active"
-  },
-  {
-    "id": "p5",
-    "title": "Satin Slip Dress",
-    "price": 180,
-    "category": "Women",
-    "image": "/images/products/dress.jpg",
-    "stock": 0,
-    "status": "inactive"
-  },
-  {
-    "id": "p6",
-    "title": "Straight Leg Jeans",
-    "price": 110,
-    "category": "Women",
-    "image": "/images/products/jeans.jpg",
-    "stock": 9,
-    "status": "active"
-  },
-  {
     "id": "p7",
     "title": "Canvas Tote Bag",
     "price": 60,
     "category": "Women",
     "image": "/images/products/tote-bag.jpg",
     "stock": 30,
-    "status": "active"
+    "status": "active",
+    "sizes": [
+      "Small",
+      "Medium",
+      "Large",
+      "Extra Large"
+    ],
+    "description": "Stitched 3-Piece\nFabric: Premium Cotton\nColor: Cream\nBreathable | For Summers\n\nDisclaimer: Colors may slightly vary due to screen settings."
   },
   {
-    "id": "p8",
-    "title": "Denim Jacket",
-    "price": 160,
+    "id": "f2cec0d1-e476-4b2f-b66c-37012b487e34",
+    "title": "premium watch",
+    "price": 200,
     "category": "Women",
-    "image": "/images/products/denim-jacket.jpg",
-    "stock": 4,
+    "image": "/uploads/product-1793930327875-e8b92v.webp",
+    "stock": 10,
     "status": "active"
   },
   {
-    "id": "1884e2ca-44c6-46cd-b74d-9ebec7e90546",
-    "title": "mobile",
-    "price": 125,
+    "id": "5e945fee-06e9-4e99-8f8b-089e0bb781bc",
+    "title": "luxury shoe",
+    "price": 200,
     "category": "men",
-    "image": "/uploads/product-1793318544026-ymekts.avif",
-    "stock": 18,
+    "image": "/uploads/product-1793930470977-yhnmi4.webp",
+    "stock": 8,
     "status": "active"
+  },
+  {
+    "id": "e252c279-55b7-411d-8ebc-d8d327dfcdf1",
+    "title": "Smart Wallet",
+    "price": 860,
+    "category": "men",
+    "image": "/uploads/product-1793941772054-wj17tx.webp",
+    "stock": 0,
+    "status": "active"
+  },
+  {
+    "id": "0df3a9dc-f359-4750-9a03-aa5892d780b9",
+    "title": "Adornments",
+    "price": 200,
+    "category": "Women",
+    "image": "/uploads/product-1793944035948-i80u4b.jpg",
+    "stock": 10,
+    "status": "active"
+  },
+  {
+    "id": "ed5a2a2e-9ef9-4017-8300-6db82cd03211",
+    "title": "Carryall Collection",
+    "price": 500,
+    "category": "Women",
+    "image": "/uploads/product-1793944109310-jxiytg.jfif",
+    "stock": 3,
+    "status": "discontinued",
+    "allowBackorder": false,
+    "preorderReleaseDate": null,
+    "description": "Fragrance Type: Eau de Parfum\n\nScent: Floral, Woody & Musky\n\nSuitable For: Men & Women\n\nOccasion: Daily Wear & Special Events\n\nLong-Lasting Fragrance\n\nElegant Glass Bottle"
+  },
+  {
+    "id": "db60dc26-e6b6-405a-b097-04d7b3ddf634",
+    "title": "TechVerse",
+    "price": 86,
+    "category": "men",
+    "image": "/uploads/product-1793944250615-ufc9gf.jpg",
+    "stock": 6,
+    "status": "active"
+  },
+  {
+    "id": "279c2bf1-bc5a-438c-9f84-a7113980aded",
+    "title": "Bottega Veneta",
+    "price": 86,
+    "category": "men",
+    "image": "/uploads/product-1793944367131-q0ga82.webp",
+    "stock": 6,
+    "status": "active"
+  },
+  {
+    "id": "9cad056c-e6c6-4695-8992-04dc1e864d49",
+    "title": "SAUVAGE",
+    "price": 86,
+    "category": "men",
+    "image": "/uploads/product-1793944406737-72n42y.jpg",
+    "stock": 6,
+    "status": "active"
+  },
+  {
+    "id": "7b415eaa-c7af-4045-9494-b74c1c9cc33f",
+    "title": "streetwear baseball caps",
+    "price": 86,
+    "category": "men",
+    "image": "/uploads/product-1793944453785-1vbvq2.jpg",
+    "stock": 6,
+    "status": "active"
+  },
+  {
+    "id": "e29c37ae-c5ed-4fb5-a251-41d372b13854",
+    "title": "Rettro Vintage Glasses",
+    "price": 88,
+    "category": "Women",
+    "image": "/uploads/product-1793944514175-2mrjk1.jpg",
+    "stock": 9,
+    "status": "active"
+  },
+  {
+    "id": "14de043a-1758-44d5-ae8c-0d7599b59820",
+    "title": "Travel Duffel Bag",
+    "price": 87,
+    "category": "Women",
+    "image": "/uploads/product-1793944876866-jiz2h2.jpg",
+    "stock": 0,
+    "status": "inactive"
+  },
+  {
+    "id": "31d1d88d-953b-4fe9-83f4-6ac920161e3d",
+    "title": "Chronograph Collection",
+    "price": 676,
+    "category": "men",
+    "image": "/uploads/product-1793945085238-aime09.jpg",
+    "stock": 6,
+    "status": "active"
+  },
+  {
+    "id": "addfff7b-0afe-45fd-bea0-fd4befa1dc46",
+    "title": "Digital Aura",
+    "price": 550,
+    "category": "Women",
+    "image": "/uploads/product-1793945277450-d5g66d.jpg",
+    "stock": 3,
+    "status": "active"
+  },
+  {
+    "id": "3034b67b-e746-41ef-b64c-fdbdae62034a",
+    "title": "YSL",
+    "price": 200,
+    "category": "men",
+    "image": "/uploads/product-1793945780843-oscm3r.jpg",
+    "stock": 5,
+    "status": "active"
+  },
+  {
+    "id": "a5069755-4d53-4d9a-bc19-f74e86e51c42",
+    "title": "Cashmere Wraps",
+    "price": 500,
+    "category": "men",
+    "image": "/uploads/product-1793946049982-y0s1ps.jpg",
+    "stock": 0,
+    "status": "inactive"
   }
 ]

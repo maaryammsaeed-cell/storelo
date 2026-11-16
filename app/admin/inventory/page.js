@@ -3,14 +3,26 @@
 import { formatPrice, formatPriceShort } from "@/lib/format";
 import { useCurrency } from "@/lib/useCurrency";
 
+import { useStoreSettings } from "@/lib/useStoreSettings";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 const ITEMS_PER_PAGE = 8;
-const LOW_STOCK_LIMIT = 10;
+function getStockStatus(stock, lowStockLimit) {
+  const missing = stock === null || stock === undefined || stock === "";
+  const value = missing ? null : Number(stock);
 
-function getStockStatus(stock) {
-  if (stock <= 0) {
+  if (missing || !Number.isFinite(value)) {
+    return {
+      label: "Unavailable",
+      badge: "bg-slate-100 text-slate-700",
+      dot: "bg-slate-400",
+      bar: "bg-slate-300",
+      text: "text-slate-600",
+    };
+  }
+
+  if (value <= 0) {
     return {
       label: "Out of Stock",
       badge: "bg-rose-100 text-rose-700",
@@ -20,7 +32,7 @@ function getStockStatus(stock) {
     };
   }
 
-  if (stock <= LOW_STOCK_LIMIT) {
+  if (value <= lowStockLimit) {
     return {
       label: "Low Stock",
       badge: "bg-amber-100 text-amber-700",
@@ -40,8 +52,9 @@ function getStockStatus(stock) {
 }
 
 export default function InventoryPage() {
+  const currency = useCurrency();
+  const { lowStockLimit } = useStoreSettings();
 
-  const currency = useCurrency();   // 👈 pehli line
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -99,15 +112,28 @@ export default function InventoryPage() {
     const total = products.length;
 
     const outOfStock = products.filter(
-      (product) => Number(product.stock) <= 0
+      (product) =>
+        product.stock !== null &&
+        product.stock !== undefined &&
+        Number(product.stock) <= 0
     ).length;
 
     const lowStock = products.filter((product) => {
-      const stock = Number(product.stock);
-      return stock > 0 && stock <= LOW_STOCK_LIMIT;
+      const stock = product.stock;
+      return (
+        stock !== null &&
+        stock !== undefined &&
+        Number(stock) > 0 &&
+        Number(stock) <= lowStockLimit
+      );
     }).length;
 
-    const inStock = total - outOfStock - lowStock;
+    // Stock info hi available nahi (null / undefined) wale products
+    const unavailable = products.filter(
+      (product) => product.stock === null || product.stock === undefined
+    ).length;
+
+    const inStock = total - outOfStock - lowStock - unavailable;
 
     const totalUnits = products.reduce(
       (sum, product) => sum + Number(product.stock || 0),
@@ -125,10 +151,11 @@ export default function InventoryPage() {
       inStock,
       lowStock,
       outOfStock,
+      unavailable,
       totalUnits,
       inventoryValue,
     };
-  }, [products]);
+  }, [products, lowStockLimit]);
 
   const healthPercent = summary.total
     ? Math.round((summary.inStock / summary.total) * 100)
@@ -182,20 +209,25 @@ export default function InventoryPage() {
         (product.title || "").toLowerCase().includes(query) ||
         (product.category || "").toLowerCase().includes(query);
 
-      const status = getStockStatus(Number(product.stock)).label;
+      const status = getStockStatus(product.stock, lowStockLimit).label;
       const matchesStatus =
         selectedStatus === "all" || status === selectedStatus;
 
       return matchesSearch && matchesStatus;
     });
-  }, [products, searchQuery, selectedStatus]);
+  }, [products, searchQuery, selectedStatus, lowStockLimit]);
 
   const attentionList = useMemo(() => {
     return [...products]
-      .filter((product) => Number(product.stock) <= LOW_STOCK_LIMIT)
+         .filter(
+        (product) =>
+          product.stock !== null &&
+          product.stock !== undefined &&
+          Number(product.stock) <= lowStockLimit
+      )
       .sort((a, b) => Number(a.stock) - Number(b.stock))
       .slice(0, 5);
-  }, [products]);
+  }, [products, lowStockLimit]);
 
   const categoryStats = useMemo(() => {
     const counts = products.reduce((acc, product) => {
@@ -472,8 +504,13 @@ export default function InventoryPage() {
                     <tbody>
                       {currentItems.map((product) => {
                         const stock = Number(product.stock);
-                        const status = getStockStatus(stock);
-                        const barWidth = Math.min(Math.max(stock, 0), 100);
+                        const status = getStockStatus(
+                          product.stock,
+                          lowStockLimit
+                        );
+                        const barWidth = Number.isFinite(stock)
+                          ? Math.min(Math.max(stock, 0), 100)
+                          : 0;
 
                         return (
                           <tr
@@ -619,7 +656,10 @@ export default function InventoryPage() {
                 <ul className="mt-4 space-y-3">
                   {attentionList.map((product) => {
                     const stock = Number(product.stock);
-                    const status = getStockStatus(stock);
+                    const status = getStockStatus(
+                      product.stock,
+                      lowStockLimit
+                    );
 
                     return (
                       <li

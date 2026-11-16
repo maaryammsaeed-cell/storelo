@@ -2,20 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useStoreSettings } from "@/lib/useStoreSettings";
 
-const LOW_STOCK_LIMIT = 10;
+function getStatus(stock, lowStockLimit) {
+  const missing = stock === null || stock === undefined || stock === "";
+  const value = missing ? null : Number(stock);
 
-function getStatus(stock) {
-  if (stock <= 0) {
+  if (missing || !Number.isFinite(value)) {
+    return { label: "Unavailable", className: "bg-slate-50 text-slate-600" };
+  }
+  if (value <= 0) {
     return { label: "Out of Stock", className: "bg-rose-50 text-rose-700" };
   }
-  if (stock <= LOW_STOCK_LIMIT) {
+  if (value <= lowStockLimit) {
     return { label: "Low Stock", className: "bg-amber-50 text-amber-700" };
   }
   return { label: "In Stock", className: "bg-emerald-50 text-emerald-700" };
 }
 
 export default function ManageInventoryPage() {
+  const { lowStockLimit } = useStoreSettings();
+
   const [items, setItems] = useState([]);
   const [drafts, setDrafts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -34,7 +41,7 @@ export default function ManageInventoryPage() {
       const res = await fetch("/api/admin/products", { cache: "no-store" });
 
       if (res.status === 401) {
-        setError("Session khatam ho gaya. Dobara login karo.");
+        setError("Your session has expired. Please log in again.");
         return;
       }
 
@@ -51,7 +58,7 @@ export default function ManageInventoryPage() {
       });
       setDrafts(nextDrafts);
     } catch {
-      setError("Inventory load nahi hui. Terminal check karo.");
+      setError("Unable to load inventory. Please check the terminal.");
     } finally {
       setLoading(false);
     }
@@ -74,7 +81,7 @@ export default function ManageInventoryPage() {
     const value = Number(drafts[item.id]);
 
     if (Number.isNaN(value) || value < 0) {
-      setError("Stock 0 ya us se zyada hona chahiye.");
+      setError("Stock must be 0 or greater.");
       return;
     }
 
@@ -96,9 +103,9 @@ export default function ManageInventoryPage() {
         )
       );
 
-      setMessage(`"${item.title}" ka stock ${value} save ho gaya ✅`);
+      setMessage(`Stock for "${item.title}" saved successfully ✅`);
     } catch {
-      setError("Stock save nahi hua. Dobara try karo.");
+      setError("Unable to save stock. Please try again.");
     } finally {
       setSavingId(null);
     }
@@ -124,19 +131,22 @@ export default function ManageInventoryPage() {
         (item.category || "").toLowerCase().includes(q);
 
       const stock = Number(drafts[item.id] ?? item.stock ?? 0);
-      const matchesLow = !lowOnly || stock <= LOW_STOCK_LIMIT;
+      const matchesLow = !lowOnly || stock <= lowStockLimit;
 
       return matchesSearch && matchesLow;
     });
-  }, [items, drafts, search, lowOnly]);
+  }, [items, drafts, search, lowOnly, lowStockLimit]);
 
-  const lowCount = items.filter(
-    (item) => Number(item.stock ?? 0) <= LOW_STOCK_LIMIT
-  ).length;
+  const lowCount = items.filter((item) => {
+    if (item.stock === null || item.stock === undefined) return false;
+    const stock = Number(item.stock);
+    return stock > 0 && stock <= lowStockLimit;
+  }).length;
 
-  const outCount = items.filter(
-    (item) => Number(item.stock ?? 0) <= 0
-  ).length;
+  const outCount = items.filter((item) => {
+    if (item.stock === null || item.stock === undefined) return false;
+    return Number(item.stock) <= 0;
+  }).length;
 
   return (
     <section className="min-w-0 flex-1">
@@ -225,9 +235,9 @@ export default function ManageInventoryPage() {
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="rounded-2xl border border-pink-100 bg-white p-12 text-center shadow-sm">
-          <p className="text-lg font-medium text-[#831843]">Koi item nahi mila</p>
+          <p className="text-lg font-medium text-[#831843]">No items found</p>
           <p className="mt-1 text-sm text-[#9d6b82]">
-            Search clear karo ya &quot;Add New Product&quot; se naya item banao.
+            Clear your search or use &quot;Add New Product&quot; to create a new item.
           </p>
         </div>
       ) : (
@@ -246,7 +256,7 @@ export default function ManageInventoryPage() {
               <tbody>
                 {filteredItems.map((item) => {
                   const stock = Number(drafts[item.id] ?? item.stock ?? 0);
-                  const status = getStatus(stock);
+                  const status = getStatus(stock, lowStockLimit);
                   const changed = stock !== Number(item.stock ?? 0);
 
                   return (
