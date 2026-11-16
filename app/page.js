@@ -6,7 +6,7 @@ import Landingherosec from "@/components/Landingherosec";
 import ProductSection from "@/components/ProductSection";
 import ServicesSection from "@/components/ServicesSection";
 import LandingFooter from "@/components/LandingFooter";
-import { readData } from "@/lib/db";
+import { listProducts } from "@/lib/repo/products";
 import { getSettings } from "@/lib/settings";
 import { releaseExpiredReservations } from "@/lib/reserve";
 import LandingTabBar from "@/components/LandingTabBar";
@@ -14,10 +14,8 @@ import LandingTabBar from "@/components/LandingTabBar";
 export const instant = false;
 
 async function getProducts() {
-
-  const products = (await readData("products")).filter((p) => !p.deletedAt);
   try {
-    const products = await readData("products");
+    const products = await listProducts();
 
     return {
       products: products.map((product) => ({

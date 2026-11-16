@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { readData } from "@/lib/db";
+import { getProduct } from "@/lib/repo/products";
 import { getSettings } from "@/lib/settings";
 import ProductDetails from "@/components/ProductDetails";
 
@@ -8,9 +8,9 @@ export const instant = false;
 export default async function ProductPage({ params }) {
   const { id } = await params;
 
-  let products;
+  let product;
   try {
-    products = (await readData("products")).filter((p) => !p.deletedAt);
+    product = await getProduct(id);
   } catch {
     return (
       <p className="px-5 py-16 text-center text-sm text-[#b3453b]">
@@ -19,7 +19,6 @@ export default async function ProductPage({ params }) {
     );
   }
 
-  const product = products.find((item) => item.id === id || item._id === id);
   if (!product) notFound();
 
   const settings = await getSettings();
