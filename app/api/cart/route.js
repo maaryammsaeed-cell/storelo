@@ -1,18 +1,22 @@
 import { NextResponse, connection } from "next/server";
 import { cookies } from "next/headers";
-import { readData, writeData } from "@/lib/db";
+import mongoose from "mongoose";
 import { getSettings } from "@/lib/settings";
 import { getStockState } from "@/lib/product";
-import { releaseExpiredReservations } from "@/lib/reserve";
+import { getProduct, listProductsByIds } from "@/lib/repo/products";
+import {
+  getCart,
+  getOrCreateCart,
+  addItem,
+  setItemQuantity,
+  removeItem,
+  clearCart,
+} from "@/lib/repo/carts";
 
 // Guest customer ki pehchan — httpOnly cookie
 const COOKIE_NAME = "cart_id";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 din
 const MAX_QUANTITY = 99;
-
-function nowISO() {
-  return new Date().toISOString();
-}
 
 // Cookie banao / set karo
 function setCartCookie(response, cartId) {
@@ -28,20 +32,18 @@ function setCartCookie(response, cartId) {
   return response;
 }
 
-// Cart ke items me products.json se asli data + stock state milao
-async function hydrate(cart, products, settings) {
-  const list = (products ?? (await readData("products"))).filter(
-  (product) => !product.deletedAt
-);
+// Cart ke items par Mongo products ka asli data + stock state milao
+async function hydrate(cart, settings) {
+  if (!cart) return { id: null, items: [] };
 
-  const byId = new Map(list.map((product) => [product.id, product]));
+  const products = await listProductsByIds(cart.items.map((i) => i.productId));
+  const byId = new Map(products.map((product) => [product.id, product]));
 
   const items = cart.items
     .map((item) => {
-      const product = byId.get(item.productId);
+      const product = byId.get(String(item.productId));
       if (!product) return null; // product delete ho gaya ho to chhor do
 
-      // Har item ka stock faisla yahin hota hai
       const state = getStockState(product, settings);
 
       return {
@@ -74,33 +76,25 @@ async function hydrate(cart, products, settings) {
 export async function GET() {
   await connection();
 
-  await releaseExpiredReservations();
-
   const settings = await getSettings();
 
   const cookieStore = await cookies();
-  let cartId = cookieStore.get(COOKIE_NAME)?.value;
+  const currentId = cookieStore.get(COOKIE_NAME)?.value;
 
-  // Pehli dafa: id bana do, taake POST isi id par jaye
-  if (!cartId) {
-    cartId = crypto.randomUUID();
-    return setCartCookie(
-      NextResponse.json({ id: cartId, items: [] }),
-      cartId
-    );
-  }
+  // Purani UUID cookie ho to naya Mongo cart banega
+  const cart = await getOrCreateCart(currentId);
 
-  const carts = await readData("carts");
-  const cart = carts.find((entry) => entry.id === cartId);
+  const response = NextResponse.json(await hydrate(cart, settings));
 
-  if (!cart) return NextResponse.json({ id: cartId, items: [] });
+  // Cookie purani/galat thi → nayi id set karo
+  if (currentId !== cart.id) setCartCookie(response, cart.id);
 
-  return NextResponse.json(await hydrate(cart, undefined, settings));
+  return response;
 }
 
 // =====================================================
 // POST /api/cart → ek product add karo
-// Body: { productId: "p1", quantity: 1 }
+// Body: { productId: "690a...", quantity: 1 }
 // =====================================================
 export async function POST(request) {
   await connection();
@@ -124,16 +118,11 @@ export async function POST(request) {
     );
   }
 
-  // 2. Product DB me hai ya nahi
-  const products = await readData("products");
-  const product = products.find(
-  (entry) => entry.id === productId && !entry.deletedAt
-);
+  // 2. Product Mongo me hai ya nahi
+  const product = await getProduct(productId);
+
   if (!product) {
-    return NextResponse.json(
-      { error: "PRODUCT_NOT_FOUND" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "PRODUCT_NOT_FOUND" }, { status: 404 });
   }
 
   // 3. Stock/status check — asli validation
@@ -152,26 +141,15 @@ export async function POST(request) {
 
   // 4. Cart dhundo ya naya banao
   const cookieStore = await cookies();
-  let cartId = cookieStore.get(COOKIE_NAME)?.value;
-  const isNewCart = !cartId;
+  const currentId = cookieStore.get(COOKIE_NAME)?.value;
 
-  if (!cartId) cartId = crypto.randomUUID();
-
-  const carts = await readData("carts");
-  let cart = carts.find((entry) => entry.id === cartId);
-
-  if (!cart) {
-    cart = {
-      id: cartId,
-      items: [],
-      createdAt: nowISO(),
-      updatedAt: nowISO(),
-    };
-    carts.push(cart);
-  }
+  const cart = await getOrCreateCart(currentId);
+  const isNewCart = currentId !== cart.id;
 
   // 5. Quantity ki hadd
-  const existing = cart.items.find((item) => item.productId === productId);
+  const existing = cart.items.find(
+    (item) => String(item.productId) === productId
+  );
   const nextQuantity = (existing?.quantity || 0) + quantity;
 
   const maxAllowed =
@@ -190,25 +168,21 @@ export async function POST(request) {
     );
   }
 
-  // 6. Add ya update
-  if (existing) {
-    existing.quantity = nextQuantity;
-  } else {
-    cart.items.push({ productId, quantity });
-  }
+  // 6. Add ya update (atomic $inc / $push)
+  const finalQuantity = Math.min(nextQuantity, MAX_QUANTITY);
 
-  cart.updatedAt = nowISO();
-  await writeData("carts", carts);
+  const updated = existing
+    ? await setItemQuantity(cart.id, productId, finalQuantity)
+    : await addItem(cart.id, productId, finalQuantity);
 
-  const response = NextResponse.json(
-    await hydrate(cart, products, settings)
-  );
-  return isNewCart ? setCartCookie(response, cartId) : response;
+  const response = NextResponse.json(await hydrate(updated, settings));
+
+  return isNewCart ? setCartCookie(response, cart.id) : response;
 }
 
 // =====================================================
 // PATCH /api/cart → quantity badlo
-// Body: { productId: "p1", delta: 1 } ya { productId: "p1", quantity: 3 }
+// Body: { productId, delta: 1 } ya { productId, quantity: 3 }
 // =====================================================
 export async function PATCH(request) {
   await connection();
@@ -221,34 +195,25 @@ export async function PATCH(request) {
   }
 
   const settings = await getSettings();
-  const products = await readData("products");
-const product = products.find(
-  (entry) => entry.id === productId && !entry.deletedAt
-);
+  const product = await getProduct(productId);
 
   if (!product) {
-    return NextResponse.json(
-      { error: "PRODUCT_NOT_FOUND" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "PRODUCT_NOT_FOUND" }, { status: 404 });
   }
 
   const state = getStockState(product, settings);
 
   const cookieStore = await cookies();
-  const cartId = cookieStore.get(COOKIE_NAME)?.value;
-  if (!cartId) return NextResponse.json({ items: [] });
+  const currentId = cookieStore.get(COOKIE_NAME)?.value;
+  const cart = await getCart(currentId);
 
-  const carts = await readData("carts");
-  const cart = carts.find((entry) => entry.id === cartId);
   if (!cart) return NextResponse.json({ items: [] });
 
-  const item = cart.items.find((entry) => entry.productId === productId);
-  if (!item) {
-    return NextResponse.json(
-      await hydrate(cart, products, settings)
-    );
-  }
+  const item = cart.items.find(
+    (entry) => String(entry.productId) === productId
+  );
+
+  if (!item) return NextResponse.json(await hydrate(cart, settings));
 
   const quantity = Number(body?.quantity);
   const delta = Number(body?.delta);
@@ -295,48 +260,41 @@ const product = products.find(
     }
   }
 
-  if (nextQuantity <= 0) {
-    cart.items = cart.items.filter(
-      (entry) => entry.productId !== productId
-    );
-  } else {
-    item.quantity = Math.min(nextQuantity, MAX_QUANTITY);
-  }
+  // <= 0 → repo khud item hata dega
+  const finalQuantity =
+    nextQuantity <= 0 ? 0 : Math.min(nextQuantity, MAX_QUANTITY);
 
-  cart.updatedAt = nowISO();
-  await writeData("carts", carts);
+  const updated = await setItemQuantity(cart.id, productId, finalQuantity);
 
-  return NextResponse.json(
-    await hydrate(cart, products, settings)
-  );
+  return NextResponse.json(await hydrate(updated || cart, settings));
 }
 
 // =====================================================
-// DELETE /api/cart?productId=p1 → ek item hatao
-// DELETE /api/cart              → poora cart khali karo
+// DELETE /api/cart?productId=690a... → ek item hatao
+// DELETE /api/cart                    → poora cart khali karo
 // =====================================================
 export async function DELETE(request) {
   await connection();
 
   const settings = await getSettings();
-  const productId = new URL(request.url).searchParams.get("productId");
+  const rawProductId = new URL(request.url).searchParams.get("productId");
 
   const cookieStore = await cookies();
-  const cartId = cookieStore.get(COOKIE_NAME)?.value;
-  if (!cartId) return NextResponse.json({ items: [] });
+  const currentId = cookieStore.get(COOKIE_NAME)?.value;
+  const cart = await getCart(currentId);
 
-  const carts = await readData("carts");
-  const cart = carts.find((entry) => entry.id === cartId);
   if (!cart) return NextResponse.json({ items: [] });
 
-  cart.items = productId
-    ? cart.items.filter((entry) => entry.productId !== productId)
-    : [];
+  let updated;
 
-  cart.updatedAt = nowISO();
-  await writeData("carts", carts);
+  if (!rawProductId) {
+    updated = await clearCart(cart.id);
+  } else if (mongoose.isValidObjectId(rawProductId)) {
+    updated = await removeItem(cart.id, rawProductId);
+  } else {
+    // Purani UUID id → Mongo cart me mojood hi nahi, kuch na karo
+    updated = cart;
+  }
 
-  return NextResponse.json(
-    await hydrate(cart, undefined, settings)
-  );
+  return NextResponse.json(await hydrate(updated || cart, settings));
 }
