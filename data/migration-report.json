@@ -1,0 +1,27 @@
+{
+  "startedAt": "2026-11-16T00:45:09.850Z",
+  "dry": false,
+  "counts": {
+    "products": {
+      "total": 20,
+      "ok": 20,
+      "failed": 0
+    },
+    "customers": {
+      "total": 11,
+      "ok": 11,
+      "failed": 0
+    },
+    "orders": {
+      "total": 37,
+      "ok": 37,
+      "failed": 0
+    },
+    "payments": {
+      "total": 5,
+      "ok": 5,
+      "failed": 0
+    }
+  },
+  "errors": []
+}

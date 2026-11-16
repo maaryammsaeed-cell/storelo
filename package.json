@@ -6,11 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:dry": "tsx scripts/migrate.ts --dry",
+    "migrate": "tsx scripts/migrate.ts",
+    "verify:db": "tsx scripts/verify-migration.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
+    "framer-motion": "^14.13.0",
     "jose": "^6.2.13",
+    "lucide-react": "^1.72.0",
     "mongoose": "^9.11.3",
     "next": "16.4.2",
     "react": "19.3.0",
@@ -25,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
