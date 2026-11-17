@@ -20,9 +20,9 @@ const ORDER_STATUS_MAP: Record<string, string> = {
   canceled: "Cancelled",
 };
 
-function normalizeOrderStatus(value: any) {
+function normalizeOrderStatus(value: unknown) {
   const key = String(value || "").trim().toLowerCase();
-  return ORDER_STATUS_MAP[key] ?? value ?? "Processing";
+  return ORDER_STATUS_MAP[key] ?? (String(value ?? "").trim() || "Processing");
 }
 
 // ---------- env load (Next ke bahar .env.local khud nahi padhta) ----------
@@ -47,35 +47,62 @@ const idMap: Record<string, Record<string, string>> = {
   products: {}, customers: {}, orders: {}, payments: {},
 };
 
-const report = {
+type MigrationCount = { total: number; ok: number; failed: number };
+type LegacyOrderItem = {
+  productId?: unknown;
+  title?: string;
+  price?: number | string;
+  quantity?: number | string;
+  lineTotal?: number | string;
+  isPreorder?: boolean;
+  isBackorder?: boolean;
+};
+type LegacyPaymentEvent = { id?: string; type?: string; at?: string | Date };
+type MigrationError = {
+  collection: string;
+  legacyId: string;
+  message: string;
+  fields?: string[];
+};
+
+const report: {
+  startedAt: string;
+  dry: boolean;
+  counts: Record<string, MigrationCount>;
+  errors: MigrationError[];
+} = {
   startedAt: new Date().toISOString(),
   dry: DRY,
-  counts: {} as Record<string, any>,
-  errors: [] as any[],
+  counts: {},
+  errors: [],
 };
 
 // ---------- helpers ----------
 async function readJson(name: string) {
   try {
     return JSON.parse(await fs.readFile(path.join(DB_DIR, `${name}.json`), "utf8"));
-  } catch (e: any) {
-    if (e.code === "ENOENT") return [];
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw e;
   }
 }
 
-function toDate(v: any) {
+function toDate(v: unknown) {
   if (!v) return null;
-  const d = new Date(v);
+  const d = new Date(v as string | number | Date);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function mapId(kind: string, oldId: any) {
+function mapId(kind: string, oldId: unknown) {
   return oldId ? idMap[kind]?.[String(oldId)] : undefined;
 }
 
 // idempotent: legacyId mila to wahi doc, warna naya insert
-async function upsert(Model: any, legacyId: string, doc: any) {
+async function upsert(
+  Model: mongoose.Model<Record<string, unknown>>,
+  legacyId: string,
+  doc: Record<string, unknown>
+) {
   await new Model(doc).validate();
 
   if (DRY) return { _id: new mongoose.Types.ObjectId(), dryRun: true };
@@ -87,12 +114,14 @@ async function upsert(Model: any, legacyId: string, doc: any) {
   );
 }
 
-function logError(collection: string, legacyId: string, err: any) {
+function logError(collection: string, legacyId: string, err: unknown) {
+  const errors = (err as { errors?: Record<string, unknown> })?.errors;
+
   report.errors.push({
     collection,
     legacyId,
-    message: err?.message || String(err),
-    fields: err?.errors ? Object.keys(err.errors) : undefined,
+    message: err instanceof Error ? err.message : String(err),
+    fields: errors ? Object.keys(errors) : undefined,
   });
 }
 
@@ -194,7 +223,7 @@ async function main() {
     try {
       const custEmail = String(o.customer?.email || "").toLowerCase();
 
-      const items = (o.items || []).map((it: any) => ({
+      const items = (o.items || []).map((it: LegacyOrderItem) => ({
         productId: mapId("products", it.productId),
         title: it.title ?? "Unknown",
         price: Number(it.price) || 0,
@@ -223,9 +252,19 @@ async function main() {
         },
 
         items,
-        itemsCount: Number(o.itemsCount) || items.reduce((s: number, i: any) => s + i.quantity, 0),
+        itemsCount:
+          Number(o.itemsCount) ||
+          items.reduce(
+            (s: number, i: { quantity: number }) => s + i.quantity,
+            0
+          ),
         itemsSummary: o.itemsSummary ?? "",
-        totalAmount: Number(o.totalAmount) || items.reduce((s: number, i: any) => s + i.lineTotal, 0),
+        totalAmount:
+          Number(o.totalAmount) ||
+          items.reduce(
+            (s: number, i: { lineTotal: number }) => s + i.lineTotal,
+            0
+          ),
 
        status: normalizeOrderStatus(o.status),
         paymentMethod: o.paymentMethod || "Cash on Delivery",
@@ -262,7 +301,7 @@ async function main() {
         amount: Number(p.amount) || 0,
         currency: p.currency || "PKR",
         status: p.status || "pending",
-        events: (p.events || []).map((e: any) => ({
+        events: (p.events || []).map((e: LegacyPaymentEvent) => ({
           id: e.id ?? `evt-${e.type}-${p.id}`,
           type: e.type,
           at: toDate(e.at) ?? new Date(),

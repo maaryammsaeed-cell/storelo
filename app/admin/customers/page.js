@@ -11,6 +11,7 @@ export default function CustomersPage() {
   const currency = useCurrency();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [sortBy, setSortBy] = useState("orders-desc");
@@ -20,17 +21,21 @@ export default function CustomersPage() {
 
   // Fetch customers from internal API
   const fetchCustomers = useCallback(async () => {
-    try {
-      const res = await fetch("/api/customers", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(Array.isArray(data) ? data : []);
-      }
+   
+       try {
+      const res = await fetch("/api/admin/customers", { cache: "no-store" });
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+
+      const data = await res.json();
+      setCustomers(Array.isArray(data) ? data : []);
+      setError("");
     } catch {
-      // Fallback handled automatically by API route
+      setCustomers([]);
+      setError("Customers load nahi ho sake. Database connection check karo.");
     } finally {
       setLoading(false);
     }
+    
   }, []);
 
   useEffect(() => {
@@ -257,6 +262,10 @@ export default function CustomersPage() {
               className="h-16 animate-pulse rounded-2xl border border-pink-100 bg-white p-4 shadow-sm"
             />
           ))}
+        </div>
+           ) : error ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">
+          {error}
         </div>
       ) : filteredCustomers.length === 0 ? (
         /* Empty State */

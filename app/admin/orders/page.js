@@ -11,6 +11,7 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [sortBy, setSortBy] = useState("latest");
   const [currentPage, setCurrentPage] = useState(1);
@@ -20,13 +21,15 @@ export default function OrdersPage() {
   // Fetch orders from internal API
   const fetchOrders = useCallback(async () => {
     try {
-      const res = await fetch("/api/orders", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setOrders(Array.isArray(data) ? data : []);
-      }
+     const res = await fetch("/api/admin/orders", { cache: "no-store" });
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+
+      const data = await res.json();
+      setOrders(Array.isArray(data) ? data : []);
+      setError("");
     } catch {
-      // Fallback handled automatically
+      setOrders([]);
+      setError("Orders load nahi ho sake. Database connection check karo.");
     } finally {
       setLoading(false);
     }
@@ -298,6 +301,10 @@ export default function OrdersPage() {
               className="h-16 animate-pulse rounded-2xl border border-pink-100 bg-white p-4 shadow-sm"
             />
           ))}
+        </div>
+          ) : error ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center text-sm text-rose-700">
+          {error}
         </div>
       ) : filteredOrders.length === 0 ? (
         /* Empty State */

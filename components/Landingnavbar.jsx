@@ -1,11 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 
 
 // Navbar ke links. Naya link chahiye to yahan add karo —
 // href abhi placeholder hai, jab pages banao to asli route laga dena.
 
-export default function Landingnavbar({ storeName = "Storelo", logo = "" }) {
+export default function Landingnavbar({ storeName = "Storelo" }) {
   return (
     <header className=" top-0 z-20 bg-[#f7f1ec] shadow-sm backdrop-blur ">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-8 gap-y-3 px-5 py-2 sm:px-8">

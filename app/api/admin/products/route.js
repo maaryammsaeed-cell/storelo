@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { createProduct, listProducts } from "@/lib/repo/products";
-import { getProduct, updateProduct, softDeleteProduct } from "@/lib/repo/products";
-import { countOrdersUsingProduct } from "@/lib/repo/orders";
 // Only a logged-in admin can use these routes.
 async function getAdmin() {
   const cookieStore = await cookies();

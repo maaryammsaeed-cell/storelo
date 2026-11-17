@@ -16,14 +16,7 @@ export const instant = false;
 async function getProducts() {
   try {
     const products = await listProducts();
-
-    return {
-      products: products.map((product) => ({
-        ...product,
-        _id: product._id || product.id,
-      })),
-      error: "",
-    };
+    return { products, error: "" };
   } catch (error) {
     console.error("Products read error:", error.message);
     return {

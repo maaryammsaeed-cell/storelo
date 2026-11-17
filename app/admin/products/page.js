@@ -7,7 +7,7 @@ import { useStoreSettings } from "@/lib/useStoreSettings";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { demoProducts } from "@/data/products";
+
 
 // Standardize product structure from any data source (API or local demo)
 function normalizeProduct(item, index) {
@@ -49,38 +49,28 @@ export default function ProductsPage() {
   const { allowBackorder } = useStoreSettings();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dataSource, setDataSource] = useState("loading"); // "live", "fallback", "loading"
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "table"
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Reliable fetch with multi-stage fallback
   const fetchProducts = useCallback(async () => {
-    const loadFallback = () => {
-      const fallbackList = demoProducts.map(normalizeProduct);
-      setProducts(fallbackList);
-      setDataSource("fallback");
-    };
+    setLoading(true);
 
     try {
-      // 1. Try internal Next.js API route first
-      const internalRes = await fetch("/api/products", { cache: "no-store" }).catch(() => null);
-      if (internalRes && internalRes.ok) {
-        const data = await internalRes.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setProducts(data.map(normalizeProduct));
-          setDataSource("live");
-          setLoading(false);
-          return;
-        }
-      }
+      const res = await fetch("/api/products", { cache: "no-store" });
 
-      // 2. Fallback to local demo data
-      loadFallback();
-    } catch {
-      loadFallback();
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+
+      const data = await res.json();
+      setProducts((Array.isArray(data) ? data : []).map(normalizeProduct));
+      setDataSource("live");
+    } catch (error) {
+      console.error("Products load failed:", error.message);
+      setProducts([]);
+      setDataSource("error");
     } finally {
       setLoading(false);
     }
@@ -209,23 +199,20 @@ export default function ProductsPage() {
       </header>
 
       {/* Offline/Fallback Banner */}
-      {dataSource === "fallback" && !loading && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs text-amber-800">
+          {dataSource === "error" && !loading && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-xs text-red-800">
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-amber-500" />
+            <span className="flex h-2 w-2 rounded-full bg-red-500" />
             <span>
-              Live external API is unreachable. Loaded <strong>Storelo demo products</strong> so you can continue testing seamlessly.
+              Products load nahi ho sake. Database connection check karo.
             </span>
           </div>
           <button
             type="button"
-            onClick={() => {
-              setLoading(true);
-              fetchProducts();
-            }}
-            className="font-semibold underline hover:text-amber-950"
+            onClick={() => fetchProducts()}
+            className="font-semibold underline hover:text-red-950"
           >
-            Retry Live API
+            Retry
           </button>
         </div>
       )}

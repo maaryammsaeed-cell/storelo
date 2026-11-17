@@ -2,9 +2,11 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import connectDB from "@/lib/mongodb";
 import Admin from "@/lib/models/Admin";
+import { listProducts } from "@/lib/repo/products";
+import { listOrders } from "@/lib/repo/orders";
+import { listCustomers } from "@/lib/repo/customers";
 
 import { connection } from "next/server";
-import { getDemoStoreData } from "@/lib/demo-api";
 import RevenueTrendChart from "@/components/admin/charts/RevenueTrendChart";
 import CategoryDonutChart from "@/components/admin/charts/CategoryDonutChart";
 import CategoryBarChart from "@/components/admin/charts/CategoryBarChart";
@@ -17,7 +19,12 @@ export const instant = false;
 
 async function getStoreData() {
   try {
-    return await getDemoStoreData();
+    const [products, orders, customers] = await Promise.all([
+      listProducts({ includeDeleted: true }),
+      listOrders(),
+      listCustomers(),
+    ]);
+    return { products, orders, customers };
   } catch (error) {
     console.error("Dashboard data error:", error);
     return null;
@@ -84,30 +91,24 @@ const settings = await getSettings();
 const currency = settings.currency;
 
   const products = data?.products || [];
-  const carts = data?.carts || [];
-  const users = data?.users || [];
+  const orders = data?.orders || [];
+  const customers = data?.customers || [];
+   const productById = new Map(products.map((p) => [p.id, p]));
 
-  const totalRevenue = carts.reduce((total, cart) => {
-    const cartTotal = (cart.products || []).reduce((sum, item) => {
-      const product = products.find((p) => p.id === item.productId);
-      return sum + (product ? product.price * item.quantity : 0);
-    }, 0);
+    const totalRevenue = orders.reduce(
+    (sum, order) => sum + (Number(order.totalAmount) || 0),
+    0
+  );
 
-    return total + cartTotal;
-  }, 0);
-
-  const averageOrder = carts.length ? totalRevenue / carts.length : 0;
+  const averageOrder = orders.length ? totalRevenue / orders.length : 0;
 
   const revenueByCategory = Object.entries(
-    carts.reduce((acc, cart) => {
-      (cart.products || []).forEach((item) => {
-        const product = products.find((p) => p.id === item.productId);
-        if (!product) return;
-
-        const category = product.category || "Other";
-        acc[category] = (acc[category] || 0) + product.price * item.quantity;
+    orders.reduce((acc, order) => {
+      (order.items || []).forEach((item) => {
+        const product = productById.get(String(item.productId));
+        const category = product?.category || "Other";
+        acc[category] = (acc[category] || 0) + (Number(item.lineTotal) || 0);
       });
-
       return acc;
     }, {})
   )
@@ -147,16 +148,10 @@ const currency = settings.currency;
 
   const trendMap = new Map(trendBuckets.map((item) => [item.key, item]));
 
-  carts.forEach((cart) => {
-    const bucket = trendMap.get(toDayKey(new Date(cart.date)));
+  orders.forEach((order) => {
+    const bucket = trendMap.get(toDayKey(new Date(order.date)));
     if (!bucket) return;
-
-    const cartTotal = (cart.products || []).reduce((sum, item) => {
-      const product = products.find((p) => p.id === item.productId);
-      return sum + (product ? product.price * item.quantity : 0);
-    }, 0);
-
-    bucket.revenue += cartTotal;
+    bucket.revenue += Number(order.totalAmount) || 0;
   });
 
   const revenueTrendData = trendBuckets.map((item) => ({
@@ -164,33 +159,19 @@ const currency = settings.currency;
     revenue: Number(item.revenue.toFixed(2)),
   }));
 
-  const recentOrders = [...carts]
+  const recentOrders = [...orders]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 5)
-    .map((cart) => {
-      const user = users.find((u) => u.id === cart.userId);
-
-      const customerName = user
-        ? `${user.name.firstname} ${user.name.lastname}`
-        : `Customer #${cart.userId}`;
-
-      const total = (cart.products || []).reduce((sum, item) => {
-        const product = products.find((p) => p.id === item.productId);
-        return sum + (product ? product.price * item.quantity : 0);
-      }, 0);
-
-      const items = (cart.products || []).reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      );
+    .map((order) => {
+      const customerName = order.customer?.name || "Customer";
 
       return {
-        id: cart.id,
+        id: order.orderNumber || order.id,
         customerName,
         initials: getInitials(customerName),
-        date: formatDate(cart.date),
-        items,
-        total,
+        date: formatDate(order.date),
+        items: Number(order.itemsCount) || 0,
+        total: Number(order.totalAmount) || 0,
       };
     });
 
@@ -211,15 +192,15 @@ const currency = settings.currency;
     },
     {
       title: "Total Orders",
-      value: carts.length,
-      description: "Demo orders placed",
+      value: orders.length,
+      description: "Orders placed",
       icon: ReceiptIcon,
       iconClass: "bg-rose-100 text-rose-600",
       glow: "bg-rose-200",
     },
     {
       title: "Total Customers",
-      value: users.length,
+      value: customers.length,
       description: "Registered customers",
       icon: UsersIcon,
       iconClass: "bg-fuchsia-100 text-fuchsia-600",
@@ -263,7 +244,7 @@ const currency = settings.currency;
                 {today}
               </span>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-100">
-                Live demo data
+                Live data
               </span>
             </div>
           </div>
@@ -337,7 +318,7 @@ const currency = settings.currency;
                   Revenue Trend
                 </h2>
                 <p className="mt-1 text-sm text-[#9d6b82]">
-                  Last 14 days of demo orders.
+                  Last 14 days of orders.
                 </p>
               </div>
               <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-semibold text-pink-700 ring-1 ring-pink-100">
@@ -361,7 +342,7 @@ const currency = settings.currency;
                     Revenue by Category
                   </h2>
                   <p className="mt-1 text-sm text-[#9d6b82]">
-                    Calculated from all demo orders.
+                    Calculated from all orders.
                   </p>
                 </div>
                 <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-semibold text-pink-700 ring-1 ring-pink-100">
@@ -419,7 +400,7 @@ const currency = settings.currency;
                   Recent Orders
                 </h2>
                 <p className="mt-1 text-sm text-[#9d6b82]">
-                  Latest 5 orders from the demo API.
+                  Latest 5 orders
                 </p>
               </div>
               <span className="rounded-full bg-pink-50 px-3 py-1 text-xs font-semibold text-pink-700 ring-1 ring-pink-100">
@@ -516,7 +497,7 @@ const currency = settings.currency;
           Storelo — Simplifying Your Store Management
         </p>
         <p className="mt-1 text-xs text-[#9d6b82]">
-          Demo dashboard powered by DummyJSON API
+          Storelo admin
         </p>
       </footer>
     </section>

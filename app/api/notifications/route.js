@@ -1,16 +1,23 @@
 import { NextResponse, connection } from "next/server";
-import { getDemoStoreData } from "@/lib/demo-api";
-
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { formatPrice } from "@/lib/format";
+import { listProducts } from "@/lib/repo/products";
+import { listOrders } from "@/lib/repo/orders";
+import { listCustomers } from "@/lib/repo/customers";
 
-function timeAgo(dateString) {
-  const diff = Date.now() - new Date(dateString).getTime();
+async function getAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_token")?.value;
+  return token ? await verifyToken(token) : null;
+}
 
+function timeAgo(dateValue) {
+  const diff = Date.now() - new Date(dateValue).getTime();
   if (Number.isNaN(diff) || diff < 0) return "Just now";
 
   const minutes = Math.floor(diff / 60000);
-
   if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes} min ago`;
 
@@ -24,17 +31,26 @@ function timeAgo(dateString) {
 export async function GET() {
   await connection();
 
+  const admin = await getAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const settings = await getSettings();
-  // Low stock limit ab Settings se aata hai (hardcoded nahi)
   const lowStockLimit = Number(settings?.lowStockLimit ?? 10);
+  const currency = settings?.currency || "USD";
 
   try {
-    const { products, carts, users } = await getDemoStoreData();
-    const now = Date.now();
+    const [products, orders, customers] = await Promise.all([
+      listProducts(),
+      listOrders(),
+      listCustomers(),
+    ]);
+
     const notifications = [];
 
-    // ---------- 1. Low / out of stock alerts ----------
-    const lowStock = [...products]
+    // ---------- 1. Low / out of stock ----------
+    products
       .filter(
         (product) =>
           product.stock !== null &&
@@ -42,65 +58,56 @@ export async function GET() {
           Number(product.stock) <= lowStockLimit
       )
       .sort((a, b) => Number(a.stock) - Number(b.stock))
-      .slice(0, 6);
+      .slice(0, 6)
+      .forEach((product) => {
+        const stock = Number(product.stock);
 
-    lowStock.forEach((product, index) => {
-      const stock = Number(product.stock);
-      notifications.push({
-        id: `stock-${product.id}`,
-        type: "stock",
-        title: stock <= 0 ? "Out of Stock" : "Low Stock Alert",
-        message:
-          stock <= 0
-            ? `"${product.title}" is out of stock. Please restock it soon.`
-            : `"${product.title}" has only ${stock} item${stock > 1 ? "s" : ""
-            } remaining in stock.`,
-        createdAt: new Date(now - (index + 1) * 45 * 60 * 1000).toISOString(),
+        notifications.push({
+          id: `stock-${product.id}`,
+          type: "stock",
+          title: stock <= 0 ? "Out of Stock" : "Low Stock Alert",
+          message:
+            stock <= 0
+              ? `"${product.title}" is out of stock. Please restock it soon.`
+              : `"${product.title}" has only ${stock} item${
+                  stock > 1 ? "s" : ""
+                } remaining in stock.`,
+          createdAt: product.updatedAt || product.createdAt,
+        });
       });
-    });
 
     // ---------- 2. Recent orders ----------
-    carts.slice(0, 6).forEach((cart, index) => {
-      const user =
-        users.find((item) => item.id === cart.userId) ||
-        users[index % users.length];
-
-      const name = user?.name
-        ? `${user.name.firstname} ${user.name.lastname}`
-        : `Customer #${cart.userId}`;
-
-      const total = (cart.products || []).reduce((sum, item) => {
-        const product = products.find((p) => p.id === item.productId);
-        return sum + (product ? product.price * item.quantity : 45 * item.quantity);
-      }, 0);
-
+    orders.slice(0, 6).forEach((order) => {
       notifications.push({
-        id: `order-${cart.id}`,
+        id: `order-${order.id}`,
         type: "order",
         title: "New Order Received",
-        message: `Order #ORD-${9100 + cart.id} placed by ${name} for ${formatPrice(
-          total, settings?.currency || "USD"
-        )}.`,
-        createdAt:
-          cart.date ||
-          new Date(now - index * 6 * 60 * 60 * 1000).toISOString(),
+        message: `Order #${order.orderNumber} placed by ${
+          order.customer?.name || "Customer"
+        } for ${formatPrice(order.totalAmount, currency)}.`,
+        createdAt: order.date || order.createdAt,
       });
     });
 
     // ---------- 3. New customers ----------
-    users.slice(0, 4).forEach((user, index) => {
-      const name = `${user.name.firstname} ${user.name.lastname}`;
+    [...customers]
+      .sort((a, b) => new Date(b.joinedDate) - new Date(a.joinedDate))
+      .slice(0, 4)
+      .forEach((customer) => {
+        const name =
+          `${customer.name?.firstname || ""} ${
+            customer.name?.lastname || ""
+          }`.trim() || customer.email;
 
-      notifications.push({
-        id: `customer-${user.id}`,
-        type: "customer",
-        title: "New Customer Registered",
-        message: `${name} created a new account.`,
-        createdAt: new Date(now - (index + 1) * 3 * 60 * 60 * 1000).toISOString(),
+        notifications.push({
+          id: `customer-${customer.id}`,
+          type: "customer",
+          title: "New Customer Registered",
+          message: `${name} created a new account.`,
+          createdAt: customer.joinedDate,
+        });
       });
-    });
 
-    // ---------- Newest first ----------
     notifications.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
@@ -113,7 +120,6 @@ export async function GET() {
     );
   } catch (error) {
     console.error("Notifications API error:", error?.message);
-
     return NextResponse.json(
       { error: "Unable to load notifications" },
       { status: 502 }

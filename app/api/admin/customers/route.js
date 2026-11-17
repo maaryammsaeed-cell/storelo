@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
-import { createCustomer, getCustomerByEmail, listCustomers } from "@/lib/repo/customers";
+import { createCustomer, listCustomers } from "@/lib/repo/customers";
 
 async function getAdmin() {
   const cookieStore = await cookies();
