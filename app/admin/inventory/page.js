@@ -310,7 +310,7 @@ export default function InventoryPage() {
                 stock value
               </span>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-100">
-                Read-only demo
+                Live inventory
               </span>
             </div>
 

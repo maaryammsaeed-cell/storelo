@@ -287,6 +287,23 @@ async function main() {
   }
   console.log(`orders: ${report.counts.orders.ok}/${report.counts.orders.total}`);
 
+  // 3b. Legacy orders ke timestamps asal order date par (JSON me createdAt/
+  // updatedAt thay hi nahi — warna migration ka waqt dikhta hai).
+  if (!DRY) {
+    const fixed = await Order.collection.updateMany(
+      { legacyId: { $exists: true, $ne: null } },
+      [
+        {
+          $set: {
+            createdAt: { $ifNull: ["$date", "$createdAt"] },
+            updatedAt: { $ifNull: ["$date", "$createdAt"] },
+          },
+        },
+      ]
+    );
+    console.log(`orders timestamps (createdAt/updatedAt = date): ${fixed.modifiedCount}`);
+  }
+
     // ---------- 4. PAYMENTS ----------
   const payments = await readJson("payments");
   report.counts.payments = { total: payments.length, ok: 0, failed: 0 };

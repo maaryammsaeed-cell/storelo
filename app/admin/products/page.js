@@ -49,6 +49,8 @@ export default function ProductsPage() {
   const { allowBackorder } = useStoreSettings();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  // "live" = API se data aya, "error" = load fail hua (banner dikhata hai)
+  const [dataSource, setDataSource] = useState("live");
   
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");

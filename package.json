@@ -10,7 +10,8 @@
     "migrate:dry": "tsx scripts/migrate.ts --dry",
     "migrate": "tsx scripts/migrate.ts",
     "verify:db": "tsx scripts/verify-migration.ts",
-    "reconcile:customers": "node --env-file=.env.local scripts/reconcile-customers.mjs"
+    "reconcile:customers": "node --env-file=.env.local scripts/reconcile-customers.mjs",
+    "fix:order-times": "node --env-file=.env.local scripts/fix-order-timestamps.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
